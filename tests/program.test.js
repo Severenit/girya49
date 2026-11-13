@@ -1,11 +1,23 @@
 import test from 'node:test';
+import { demoIds } from '../demos.js';
+import { getPlan as currentDailyPlan } from '../program.js';
 import assert from 'node:assert/strict';
-import { WEEKS, EXERCISES, getDay, getPlan, getExercisePrescription, dateIndex, estimateMinutes } from '../program.js';
+import {
+  WEEKS, EXERCISES,
+  getDay as getProgramDay, getPlan as getProgramPlan,
+  getExercisePrescription, dateIndex, estimateMinutes as getProgramEstimateMinutes
+} from '../program.js';
+
+// Keep the original agreed 3/2/2 schedule covered explicitly; new daily defaults
+// are exercised below through the unwrapped getProgramDay/getProgramPlan APIs.
+const getDay = (index, settings = {}) => getProgramDay(index, { dailyPractice: false, ...settings });
+const getPlan = (index, settings = {}) => getProgramPlan(index, { dailyPractice: false, ...settings });
+const estimateMinutes = (index, settings = {}) => getProgramEstimateMinutes(index, { dailyPractice: false, ...settings });
 
 const works = plan => plan.filter(step => step.kind === 'work');
 const count = (plan, id) => works(plan).filter(step => step.exerciseId === id).length;
 
-test('49 civil dates span Nov 13 through Dec 31 with exactly 21/14/14 sessions', () => {
+test('baseline mode keeps 49 civil dates and exactly 21/14/14 sessions', () => {
   const days = Array.from({ length: 49 }, (_, index) => getDay(index));
   assert.equal(days[0].date, '2026-11-13');
   assert.equal(days.at(-1).date, '2026-12-31');
@@ -132,4 +144,78 @@ test('cardio progresses then deloads; recovery is intentionally light', () => {
   assert.deepEqual(getPlan(2).map(step => step.seconds), [600, 600]);
   assert.equal(getPlan(48)[0].seconds, 1200);
   assert.match(getPlan(48)[0].cue, /Финальный день/);
+});
+
+const workVolume = plan => works(plan).reduce((total, step) => total + (step.seconds || step.reps * 4), 0);
+const kettleExerciseIds = new Set(['squat', 'pausesquat', 'row', 'rdl', 'carry', 'deadlift', 'floorpress', 'swing']);
+
+test('daily mode is the default and gives all 49 dates an actual exercise session', () => {
+  assert.deepEqual(Array.from({ length: 7 }, (_, day) => getProgramDay(day).code), ['A', 'D', 'E', 'B', 'F', 'C', 'G']);
+  const types = Array.from({ length: 49 }, (_, day) => getProgramDay(day).type);
+  assert.deepEqual(['strength', 'conditioning', 'mobility'].map(type => types.filter(value => value === type).length), [21, 14, 14]);
+  for (let day = 0; day < 49; day++) {
+    const plan = getProgramPlan(day);
+    assert.ok(new Set(works(plan).map(step => step.exerciseId)).size >= 4, `day ${day + 1} needs at least four work exercises`);
+    assert.equal(plan[0].kind, 'warmup', `day ${day + 1} must start with preparation`);
+    assert.equal(plan.at(-1).kind, 'cooldown', `day ${day + 1} must finish gently`);
+    assert.equal(new Set(plan.map(step => step.id)).size, plan.length, `day ${day + 1} step IDs must be unique`);
+    for (const step of plan) {
+      assert.ok(EXERCISES[step.exerciseId]);
+      assert.ok(step.reps === null || (Number.isInteger(step.reps) && step.reps > 0));
+      assert.ok(step.seconds === null || (Number.isInteger(step.seconds) && step.seconds > 0));
+      assert.ok(step.reps !== null || step.seconds !== null);
+    }
+  }
+});
+
+test('D E F G use bodyweight practice and never add heavy kettlebell work', () => {
+  for (let day = 0; day < 49; day++) {
+    if (!['D', 'E', 'F', 'G'].includes(getProgramDay(day).code)) continue;
+    assert.equal(getProgramDay(day).usesKettlebell, false);
+    const plan = getProgramPlan(day);
+    for (const step of works(plan)) {
+      assert.equal(kettleExerciseIds.has(step.exerciseId), false, `day ${day + 1} must leave the kettlebell aside`);
+      assert.doesNotMatch(EXERCISES[step.exerciseId].equipment, /16\s*кг/i);
+    }
+  }
+});
+
+test('daily bodyweight sessions deload in week seven and shrink in easy mode', () => {
+  for (const slot of [1, 2, 4, 6]) {
+    const normal = getProgramPlan(21 + slot);
+    const easy = getProgramPlan(21 + slot, { easy: true });
+    assert.ok(works(easy).length <= works(normal).length);
+    assert.ok(workVolume(easy) < workVolume(normal), `easy ${getProgramDay(21 + slot).code} must reduce work`);
+    assert.ok(workVolume(getProgramPlan(42 + slot)) < workVolume(getProgramPlan(35 + slot)), `final ${getProgramDay(42 + slot).code} must be lighter than week six`);
+  }
+});
+
+test('daily practice toggle keeps the original kettlebell sessions unchanged', () => {
+  for (let day = 0; day < 49; day++) {
+    if (![0, 3, 5].includes(day % 7)) continue;
+    for (const settings of [{}, { easy: true }, { swings: true, floorpress: true }]) {
+      assert.deepEqual(getProgramPlan(day, settings), getProgramPlan(day, { ...settings, dailyPractice: false }));
+    }
+  }
+});
+
+test('additional daily sessions explicitly preserve an effort reserve', () => {
+  for (let day = 0; day < 49; day++) {
+    const descriptor = getProgramDay(day);
+    if (!['conditioning', 'mobility'].includes(descriptor.type)) continue;
+    const workSteps = works(getProgramPlan(day));
+    for (const step of workSteps) assert.match(step.cue, /запас/i, `${descriptor.code} must explain when to stop`);
+    if (descriptor.type === 'conditioning') {
+      assert.ok(workSteps.some(step => /разговорный темп/i.test(step.cue)));
+    } else {
+      assert.ok(workSteps.every(step => /л[её]гкая практика/i.test(step.cue) && /не накапливай усталость/i.test(step.cue)));
+    }
+  }
+});
+
+
+test('every new daily exercise has its own offline technique demonstration', () => {
+  for(let day=0;day<49;day++)for(const step of currentDailyPlan(day)){
+    assert.ok(demoIds.includes(EXERCISES[step.exerciseId].demo), `missing demo for ${step.exerciseId}`);
+  }
 });

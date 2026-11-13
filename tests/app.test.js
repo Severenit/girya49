@@ -357,3 +357,17 @@ test('damaged workout backups never erase existing photos or measurements', asyn
     assert.equal(app.bodyWrites,0);
   }
 });
+
+
+test('daily mode is enabled by default and changing it preserves an already queued legacy session', async () => {
+  const baseSteps=getPlan(1,{dailyPractice:false});
+  const app=await harness({saved:{version:1,settings:{},completions:{},active:{day:1,steps:baseSteps,position:0,timer:null,skipped:[],startedAt:Date.now()}}});
+  assert.equal(app.api.state.settings.dailyPractice,true);
+  assert.equal(app.api.state.active.steps[0].exerciseId,'walk');
+  assert.match(app.api.state.active.title,/Кардио/);
+  app.nodes.get('#app').listeners.get('change')({target:{dataset:{setting:'dailyPractice'},type:'checkbox',checked:false}});
+  await app.click('resume');
+  assert.equal(app.api.state.settings.dailyPractice,false);
+  assert.equal(app.api.state.active.steps[0].exerciseId,'walk');
+  assert.equal(app.api.state.active.steps.length,baseSteps.length);
+});

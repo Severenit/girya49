@@ -127,6 +127,98 @@ function mobility(second = false) {
     : head(53, 119, 9) + path('M65 122Q88 102 111 125M111 125L126 151L126 173M126 173H144M70 122L61 145L61 173M61 173H78') + path('M111 125L101 151L84 174', 'far-limb');
 }
 
+// Low-impact and floor movements: two key positions, without external assets.
+function march(lifted = false) {
+  return head(88, 27) + path('M88 39L88 103') +
+    path('M88 103L76 138L74 173M74 173H90') +
+    path(lifted ? 'M88 103L114 123L122 151M122 151H137' : 'M88 103L104 139L108 173M108 173H124', 'far-limb') +
+    path(lifted ? 'M88 52L108 76L93 92M88 52L69 79L76 100' : 'M88 52L71 80L66 109M88 52L107 80L111 109');
+}
+
+function stepJack(open = false) {
+  return head(90, 27) + path('M90 39L90 104') +
+    path(open ? 'M90 104L119 140L140 173M140 173H155' : 'M90 104L102 140L105 173M105 173H120', 'far-limb') +
+    path('M90 104L78 140L74 173M74 173H89') +
+    path(open ? 'M84 52L64 32L58 12M96 52L116 32L122 12' : 'M84 52L67 81L65 111M96 52L112 81L115 111');
+}
+
+function lateralStep(wide = false) {
+  const x = wide ? 103 : 79;
+  return head(x, 27) + path(`M${x} 39L${x} 104`) +
+    path(wide ? 'M103 104L126 141L145 173M145 173H160' : 'M79 104L93 140L99 173M99 173H114', 'far-limb') +
+    path(wide ? 'M103 104L82 140L65 173M65 173H80' : 'M79 104L67 140L63 173M63 173H78') +
+    path(`M${x} 52L${x-18} 79L${x-10} 96M${x} 52L${x+19} 79L${x+10} 96`) +
+    (wide ? arrow('M25 111H49', 'M41 104L49 111L41 118') : '');
+}
+
+function shadowbox(punch = false) {
+  return head(88, 35) + path('M88 47L80 108') +
+    path('M80 108L102 139L121 173M121 173H137', 'far-limb') +
+    path('M80 108L61 139L45 173M45 173H63') +
+    path('M84 61L67 80L73 55', 'far-limb') +
+    path(punch ? 'M88 62L123 68L155 59' : 'M88 62L109 87L116 59');
+}
+
+function heelRaise(raised = false) {
+  const y = raised ? -9 : 0;
+  return '<path class="floor" d="M145 48V176"/>' +
+    head(83, 29 + y) + path(`M83 ${41+y}L83 ${103+y}`) +
+    path(raised ? 'M83 94L92 132L92 160L120 173' : 'M83 103L94 140L94 173H122', 'far-limb') +
+    path(raised ? 'M83 94L78 132L77 160L105 173' : 'M83 103L78 140L77 173H105') +
+    path(`M83 ${53+y}L111 ${72+y}L145 65M83 ${53+y}L67 ${80+y}L70 ${104+y}`);
+}
+
+function sidePlank(raised = false) {
+  return head(43, raised ? 112 : 134, 9) +
+    path(raised ? 'M54 119L65 125L102 149L139 173L154 154H164' : 'M54 141L65 147L102 170L139 173L154 154H164') +
+    path(raised ? 'M65 125L67 173H44M65 125L85 119L103 148' : 'M65 147L67 173H44M65 147L85 144L102 166') +
+    path(raised ? 'M100 151L135 173L150 156' : 'M100 173L135 173L150 156', 'far-limb');
+}
+
+function thoracicOpen(open = false) {
+  return head(32, 152, 9) + path('M44 157L57 158L104 160L131 137L153 161') +
+    path('M103 163L132 141L154 165M54 161L80 141L106 123', 'far-limb') +
+    path(open ? 'M57 158L37 133L17 114' : 'M57 158L83 137L109 120');
+}
+
+function hipFlexor(forward = false) {
+  const x = forward ? 88 : 77;
+  return '<path class="floor" d="M145 88V176M128 88H160"/>' +
+    head(x, 36) + path(`M${x} 48L${x} 111`) +
+    path(`M${x} 111L54 173H27M27 173H20`, 'far-limb') +
+    path(`M${x} 111L${forward?122:111} 123L111 173H129`) +
+    path(`M${x} 61L110 79L145 88M${x} 61L${x-11} 88L${x+9} 115`);
+}
+
+function birdDog(extended = false) {
+  return head(44, 96, 9) + path('M54 103L65 109L116 109') +
+    path(extended ? 'M71 111L74 142L74 173H86M116 111L143 109L165 109L169 116' : 'M71 111L74 142L74 173H86M116 111L128 170H154', 'far-limb') +
+    path('M116 109L121 173H151') +
+    path(extended ? 'M65 109L42 109H16' : 'M65 109L65 142L65 173H77');
+}
+
+function hipHingeBW() {
+  return head(119, 62) + path('M110 73L65 109') +
+    path('M65 109L83 143L86 173M86 173H105M104 79L85 102L66 110', 'far-limb') +
+    path('M65 109L73 142L64 173M64 173H84M109 79L92 103L66 110');
+}
+
+function ankleMobility(forward = false) {
+  const x = forward ? 88 : 78;
+  return '<path class="floor" d="M148 45V176"/>' +
+    head(x, forward ? 33 : 30) + path(`M${x} ${forward?45:42}L${x} ${forward?105:103}`) +
+    path(`M${x} ${forward?105:103}L62 139L53 173H70`, 'far-limb') +
+    path(`M${x} ${forward?105:103}L${forward?116:103} 132L101 173H127`) +
+    path(`M${x} ${forward?56:53}L113 74L148 64`);
+}
+
+function catCow(rounded = false) {
+  return head(rounded ? 49 : 44, rounded ? 113 : 97, 9) +
+    path(rounded ? 'M60 113L65 113Q89 97 116 113' : 'M55 104L65 110H116') +
+    path(`M72 ${rounded?114:112}L74 173H86M116 ${rounded?114:112}L128 170H154`, 'far-limb') +
+    path(`M65 ${rounded?113:110}L65 173H77M116 ${rounded?113:110}L121 173H151`);
+}
+
 const demos = {
   squat: { title: 'Гоблет-присед: стойка и нижнее положение', labels: ['СТОЙКА', 'ПРИСЕД'], poses: [standing({ goblet: true }), squat()], note: 'Схема движения · глубина по самочувствию' },
   pausesquat: { title: 'Гоблет-присед с паузой в нижнем положении', labels: ['СТОЙКА', 'ПАУЗА 1–2 С'], poses: [standing({ goblet: true }), squat()], note: 'Удерживайте напряжение во время паузы' },
@@ -142,13 +234,25 @@ const demos = {
   swing: { title: 'Махи гирей: таз назад и выпрямление таза', labels: ['ТАЗ НАЗАД', 'РАЗГИБАНИЕ ТАЗА'], poses: [swing(), swing(true)], note: 'Только после освоения техники · по умолчанию становая тяга' },
   walk: { title: 'Кардио: спокойная или быстрая ходьба', labels: ['ШАГ', 'ДЫШИТЕ СВОБОДНО'], poses: [walk(), walk(true)], note: 'Умеренный темп: можете говорить полными фразами' },
   mobility: { title: 'Мягкая подвижность спины в опоре на руки и колени', labels: ['МЯГКО ОКРУГЛИТЬ', 'ВЕРНУТЬСЯ'], poses: [mobility(), mobility(true)], note: 'Без боли · небольшая комфортная амплитуда' },
+  march: { title: 'Ходьба на месте без прыжков', labels: ['СТОЙКА', 'ШАГ НА МЕСТЕ'], poses: [march(), march(true)], note: 'По очереди поднимайте колени на комфортную высоту. Дышите свободно.', caption: 'Колени на удобную высоту · без прыжков' },
+  stepjacks: { title: 'Шаг в сторону с подъёмом рук без прыжка', labels: ['СТОЙКА', 'ШАГ + РУКИ ВВЕРХ'], poses: [stepJack(), stepJack(true)], note: 'Шагните в сторону и поднимите руки в комфортной амплитуде, затем вернитесь. Чередуйте стороны без прыжков.', caption: 'Шагайте без прыжков · руки по комфорту' },
+  lateralstep: { title: 'Приставной шаг в сторону', labels: ['СТОЙКА', 'ШАГ В СТОРОНУ'], poses: [lateralStep(), lateralStep(true)], note: 'Мягко шагните в сторону, приставьте вторую ногу и вернитесь в другую сторону. Без гири и прыжков.', caption: 'Мягкие шаги вправо и влево · без гири' },
+  shadowboxing: { title: 'Лёгкие удары руками в воздух', labels: ['РУКИ У ЛИЦА', 'МЯГКИЙ УДАР'], poses: [shadowbox(), shadowbox(true)], note: 'Легко вытягивайте руку и возвращайте к лицу. Сохраняйте устойчивую стойку, не выпрямляйте локоть резко до упора.', caption: 'Лёгкие удары · локоть остаётся мягким' },
+  heelraise: { title: 'Подъём на носки с устойчивой опорой', labels: ['СТОПЫ НА ПОЛУ', 'ПОДНЯТЬ ПЯТКИ'], poses: [heelRaise(), heelRaise(true)], note: 'Держитесь за устойчивую опору, поднимите пятки и плавно опустите. Не раскачивайтесь.', caption: 'Держитесь за опору · опускайтесь плавно' },
+  sideplank: { title: 'Боковая планка на предплечье и согнутых коленях', labels: ['НА БОКУ', 'ПОДНЯТЬ ТАЗ'], poses: [sidePlank(), sidePlank(true)], note: 'Локоть под плечом. Поднимите таз до линии плечо — таз — колени; колени остаются согнутыми на полу. Не задерживайте дыхание.', caption: 'Предплечье и колени — опора · таз ровно' },
+  thoracicopen: { title: 'Открытая книга лёжа на боку', labels: ['ЛАДОНИ ВМЕСТЕ', 'ОТКРЫТЬ РУКУ'], poses: [thoracicOpen(), thoracicOpen(true)], note: 'Лёжа на боку держите согнутые колени вместе. Откройте верхнюю руку в комфортном диапазоне без разворота таза и рывков.', caption: 'Колени вместе · таз остаётся на месте' },
+  hipflexor: { title: 'Мягкое растяжение сгибателей бедра на одном колене', labels: ['НА ОДНОМ КОЛЕНЕ', 'МЯГКО ВПЕРЁД'], poses: [hipFlexor(), hipFlexor(true)], note: 'Опирайтесь рукой на устойчивую опору. Из положения на одном колене мягко подайте таз вперёд, сохраняя корпус вертикально и поясницу нейтрально.', caption: 'Таз немного вперёд · без прогиба в спине' },
+  birddog: { title: 'Противоположные рука и нога из положения на четвереньках', labels: ['ЧЕТВЕРЕНЬКИ', 'РУКА + ДРУГАЯ НОГА'], poses: [birdDog(), birdDog(true)], note: 'Вытяните противоположные руку и ногу до уровня корпуса. Сохраняйте ровный таз и нейтральную поясницу. Чередуйте стороны.', caption: 'Противоположные рука и нога · без прогиба' },
+  hiphingebw: { title: 'Отведение таза назад без веса', labels: ['СТОЙКА', 'ТАЗ НАЗАД'], poses: [standing(), hipHingeBW()], note: 'Колени слегка согнуты. Отведите таз назад, наклоняя прямой корпус, и вернитесь в стойку. Без гири.', caption: 'Таз назад · мягкие колени · спина ровная' },
+  anklemobility: { title: 'Подвижность голеностопа у устойчивой опоры', labels: ['ПЯТКА НА ПОЛУ', 'КОЛЕНО ВПЕРЁД'], poses: [ankleMobility(), ankleMobility(true)], note: 'Держитесь за опору. Мягко направляйте переднее колено по линии носка, сохраняя пятку на полу. Вернитесь без рывка.', caption: 'Колено по линии носка · пятка на полу' },
+  catcow: { title: 'Мягкое округление спины и возвращение к нейтрали', labels: ['НЕЙТРАЛЬНО', 'МЯГКО ОКРУГЛИТЬ'], poses: [catCow(), catCow(true)], note: 'На четвереньках слегка округлите спину и вернитесь к нейтральному положению. Не проваливайтесь в глубокий прогиб.', caption: 'Мягко округлите · вернитесь к нейтрали' },
   warmup: { title: 'Разминка: ходьба на месте и лёгкий присед без гири', labels: ['ШАГАЙТЕ НА МЕСТЕ', 'ПРИСЕД БЕЗ ГИРИ'], poses: [walk(), head(100, 67) + path('M100 79L77 118M77 118L107 140L91 173M91 173H109M77 118L115 138L111 173M111 173H129M98 84L112 101L134 102')], note: 'Начните легко · движения без веса' },
 };
 
 /** Returns a two-position SVG schematic; id must be one of the exported demoIds. */
 export function renderDemo(id) {
   const demo = demos[id] || demos.warmup;
-  return `<figure class="movement-demo"><svg viewBox="0 0 400 226" role="img" aria-label="${demo.title}" xmlns="http://www.w3.org/2000/svg"><title>${demo.title}</title>${demo.poses.map((pose, index) => `<g class="demo-position phase-${index === 0 ? 'one' : 'two'}" transform="translate(${index === 0 ? 8 : 212} 6)"><rect class="phase-card" x="0" y="0" width="180" height="202" rx="16"/>${floor}${pose}<text class="phase-label" x="90" y="194">${demo.labels[index]}</text></g>`).join('')}<text class="demo-caption" x="200" y="222">Схема техники · двигайтесь плавно</text></svg><figcaption class="sr-only">${demo.note}</figcaption></figure>`;
+  return `<figure class="movement-demo"><svg viewBox="0 0 400 226" role="img" aria-label="${demo.title}" xmlns="http://www.w3.org/2000/svg"><title>${demo.title}</title>${demo.poses.map((pose, index) => `<g class="demo-position phase-${index === 0 ? 'one' : 'two'}" transform="translate(${index === 0 ? 8 : 212} 6)"><rect class="phase-card" x="0" y="0" width="180" height="202" rx="16"/>${floor}${pose}<text class="phase-label" x="90" y="194">${demo.labels[index]}</text></g>`).join('')}<text class="demo-caption" x="200" y="222">${demo.caption || 'Схема техники · двигайтесь плавно'}</text></svg><figcaption class="sr-only">${demo.note}</figcaption></figure>`;
 }
 
 export const demoIds = Object.freeze(Object.keys(demos));

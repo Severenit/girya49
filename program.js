@@ -10,6 +10,71 @@ export const WEEKS = [
 ];
 
 export const EXERCISES = {
+  dailywarmup: {
+    title: 'Разминка без гири', demo: 'warmup', equipment: 'Без гири · 3 минуты',
+    cues: ['Начни с лёгкого шага на месте.', 'Мягко подвигай плечами, сделай несколько подъёмов на носки.', 'Постепенно увеличивай амплитуду. Дыши свободно.'],
+    easier: 'Шагай медленнее и используй небольшую амплитуду.',
+  },
+  march: {
+    title: 'Марш с подъёмом коленей', demo: 'march', equipment: 'Без гири · без прыжков',
+    cues: ['Шагай на месте, поднимая колено до удобной высоты.', 'Корпус держи ровно, мягко ставь стопу и помогай руками.', 'Сохраняй темп, в котором можешь говорить фразами.'],
+    easier: 'Обычный спокойный шаг на месте; колени поднимай ниже.',
+  },
+  stepjacks: {
+    title: 'Шаги «джампинг-джек»', demo: 'stepjacks', equipment: 'Без гири · шаг вместо прыжка',
+    cues: ['Шагни одной ногой в сторону, мягко подними руки.', 'Вернись в центр и повтори другой ногой. Обе ноги не отрывай одновременно.', 'Выбирай комфортную высоту рук, не прогибай поясницу.'],
+    easier: 'Оставь руки на поясе и делай короткие шаги в стороны.',
+  },
+  lateralstep: {
+    title: 'Приставные шаги', demo: 'lateralstep', equipment: 'Без гири · свободное место',
+    cues: ['Сделай шаг в сторону и приставь другую ногу.', 'Двигайся туда и обратно, слегка смягчая колени.', 'Не скрещивай ноги. Проверь, что рядом нет препятствий.'],
+    easier: 'Уменьши длину шага и темп.',
+  },
+  shadowboxing: {
+    title: 'Бой с тенью', demo: 'shadowboxing', equipment: 'Без гири · лёгкие движения',
+    cues: ['Встань устойчиво и по очереди направляй руки вперёд.', 'Двигайся легко, без силовых ударов и резкого запирания локтя.', 'Держи плечи свободными. Дыши и сохраняй разговорный темп.'],
+    easier: 'Короткие движения руками на месте, без разворота корпуса.',
+  },
+  heelraise: {
+    title: 'Подъёмы на носки', demo: 'heelraise', equipment: 'Без гири · опора при необходимости',
+    cues: ['Стой ровно, при необходимости придерживайся за стену.', 'Поднимись на носки обеих ног без раскачивания.', 'Подконтрольно опусти пятки. Не пружинь.'],
+    easier: 'Небольшой подъём пяток с опорой двумя руками.',
+  },
+  sideplank: {
+    title: 'Боковая планка с колен', demo: 'sideplank', equipment: 'Без гири · по одной стороне',
+    cues: ['Ляг на бок, согни колени; локоть поставь под плечом.', 'Мягко подними таз: плечо, таз и колени на одной линии.', 'Дыши свободно. Заканчивай до дрожи и потери положения.'],
+    easier: 'Удерживай таз ниже или сократи время до 5–10 секунд.',
+  },
+  catcow: {
+    title: 'Кошка — нейтральная спина', demo: 'catcow', equipment: 'Без гири · коврик',
+    cues: ['Встань на четвереньки: кисти под плечами, колени под тазом.', 'Мягко округли спину на выдохе, затем вернись в нейтраль.', 'Не проваливай поясницу и не дави в крайние положения.'],
+    easier: 'Делай совсем небольшое движение или удерживай нейтральную спину.',
+  },
+  thoracicopen: {
+    title: 'Раскрытие грудного отдела', demo: 'thoracicopen', equipment: 'Без гири · по одной стороне',
+    cues: ['Ляг на бок, согни колени и сложи их вместе.', 'Верхнюю руку медленно раскрой назад, сохраняя колени вместе.', 'Следи за кистью взглядом. Достаточно комфортной амплитуды.'],
+    easier: 'Раскрывай руку лишь на небольшое расстояние, не тяни плечо к полу.',
+  },
+  hipflexor: {
+    title: 'Полувыпад · растяжка бедра', demo: 'hipflexor', equipment: 'Без гири · по одной стороне',
+    cues: ['Поставь одно колено на мягкий коврик, другую стопу — впереди.', 'Подтяни таз под себя и совсем немного сместись вперёд.', 'Сохраняй корпус ровным. Не прогибайся и не тяни через боль.'],
+    easier: 'Держись за устойчивую опору и уменьши смещение таза.',
+  },
+  birddog: {
+    title: 'Bird dog', demo: 'birddog', equipment: 'Без гири · по одной стороне',
+    cues: ['Встань на четвереньки и держи спину спокойно.', 'Вытяни противоположные руку и ногу, не поднимая их выше корпуса.', 'Вернись без раскачивания. Сторону считай по вытягиваемой ноге.'],
+    easier: 'Двигай только одной ногой, скользя носком по полу.',
+  },
+  hiphingebw: {
+    title: 'Наклон с отведением таза', demo: 'hiphingebw', equipment: 'Без гири · техника движения',
+    cues: ['Стой ровно, чуть смягчи колени.', 'Отведи таз назад, сохраняя длинную ровную спину.', 'Вернись в стойку без рывка. Амплитуда небольшая.'],
+    easier: 'Встань недалеко от стены и мягко коснись её ягодицами.',
+  },
+  anklemobility: {
+    title: 'Подвижность голеностопа', demo: 'anklemobility', equipment: 'Без гири · по одной стороне',
+    cues: ['Встань в небольшой шаг и держись за опору.', 'Медленно направь переднее колено вперёд по линии носка.', 'Передняя пятка остаётся на полу. Вернись без пружины.'],
+    easier: 'Сократи движение колена и перенеси меньше веса вперёд.',
+  },
   warmup: {
     title: 'Разминка', demo: 'warmup', equipment: 'Без гири · 5 минут',
     cues: ['10 приседаний без веса и 10 наклонов с тазом назад.', 'По 6 обратных выпадов на ногу; можно держаться за опору.', 'Круги плечами и спокойная ходьба до конца таймера.'],
@@ -130,10 +195,19 @@ export function dateIndex(date = new Date()) {
   return Math.round((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - START_CIVIL) / DAY_MS);
 }
 
-export function getDay(index) {
+export function getDay(index, settings = {}) {
   assertIndex(index);
   const week = Math.floor(index / 7) + 1;
   const slot = index % 7;
+  if (settings.dailyPractice !== false && [1,2,4,6].includes(slot)) {
+    const sessions = {
+      1: {code:'D',type:'conditioning',title:'D · Кондиция + корпус',subtitle:'Шаги, работа руками и боковая планка',label:'Тренировка без гири',minutes:20},
+      2: {code:'E',type:'mobility',title:'E · Контроль тела',subtitle:'Спина, таз и устойчивость · лёгкий темп',label:'Практика движения',minutes:17},
+      4: {code:'F',type:'conditioning',title:'F · Выносливость',subtitle:'Круги без прыжков и без гири',label:'Тренировка без гири',minutes:21},
+      6: {code:'G',type:'mobility',title:'G · Техника и подвижность',subtitle:index===48?'Лёгкое занятие · финальное сравнение':'Таз, спина и координация · лёгкий темп',label:'Практика движения',minutes:17},
+    };
+    return {index,date:new Date(START_CIVIL+index*DAY_MS).toISOString().slice(0,10),week,weekday:WEEKDAYS[slot],usesKettlebell:false,...sessions[slot]};
+  }
   const code = CYCLE[slot];
   const type = ['A', 'B', 'C'].includes(code) ? 'strength' : code === 'walk' ? 'cardio' : 'recovery';
   const minutes = type === 'strength' ? (week === 1 || week === 2 || week === 7 ? 25 : 35)
@@ -143,7 +217,7 @@ export function getDay(index) {
   const subtitle = code === 'A' ? 'База · 5 упражнений' : code === 'B' ? 'Устойчивость и контроль · 5 упражнений'
     : code === 'C' ? 'Полный корпус · круги' : type === 'cardio' ? 'Разговорный темп · без гири'
     : index === 48 ? 'Лёгкая прогулка · финальная оценка' : slot === 2 ? 'Мобильность + спокойная прогулка' : 'Спокойная прогулка и отдых';
-  return { index, date: new Date(START_CIVIL + index * DAY_MS).toISOString().slice(0, 10), week, weekday: WEEKDAYS[slot], type, code, title, subtitle, minutes };
+  return { index, date: new Date(START_CIVIL + index * DAY_MS).toISOString().slice(0, 10), week, weekday: WEEKDAYS[slot], type, code, title, subtitle, minutes, usesKettlebell:type==='strength', label:type==='strength'?'Силовая тренировка':type==='cardio'?'День кардио':'Восстановление' };
 }
 
 /** Base A/B prescription; circuit C applies its fixed targets when constructing the plan. */
@@ -165,7 +239,8 @@ export function getExercisePrescription(exerciseId, week) {
 }
 
 export function getPlan(index, settings = {}) {
-  const day = getDay(index);
+  const day = getDay(index, settings);
+  if (day.type === 'conditioning' || day.type === 'mobility') return getDailyPlan(day, settings);
   const steps = [];
   const easy = settings.easy === true;
   const week = easy ? 1 : day.week;
@@ -239,6 +314,57 @@ export function getPlan(index, settings = {}) {
     }
   }
   add('cooldown', 'cooldown', { seconds: 120, cue: 'Спокойная ходьба и ровное дыхание.' });
+  return steps;
+}
+
+function getDailyPlan(day, settings) {
+  const steps=[];
+  const easy=settings.easy===true, week=day.week, deload=week===7;
+  const add=(exerciseId,kind,data={})=>steps.push({id:`${day.index}-${steps.length}-${exerciseId}`,exerciseId,title:EXERCISES[exerciseId].title,kind,set:null,sets:null,side:null,reps:null,seconds:null,...data});
+  const rest=(seconds,cue)=>add('cooldown','rest',{seconds,title:'Отдых',cue});
+  const work=(id,round,sets,{reps=null,seconds=null,sided=false}={},cue)=>{
+    (sided?['Левая','Правая']:[null]).forEach((side,i)=>{
+      if(i)rest(15,'Спокойно поменяй сторону.');
+      add(id,'work',{set:round,sets,round,side,reps,seconds,cue});
+    });
+  };
+  add('dailywarmup','warmup',{seconds:180,cue:'Мягко разогрейся без гири.'});
+  if(day.type==='conditioning') {
+    const rounds=easy||deload?2:week<=2?3:4;
+    const seconds=easy||deload?30:week<=2?35:week<=4?40:45;
+    const cue='Умеренный разговорный темп. Оставь запас, не работай до предела.';
+    const entries=['march','stepjacks','lateralstep','shadowboxing',...(day.code==='F'?['heelraise']:[])];
+    for(let round=1;round<=rounds;round++) {
+      entries.forEach((id,i)=>{
+        work(id,round,rounds,id==='heelraise'?{reps:easy||deload?10:week<=2?12:15}:{seconds},cue);
+        if(i<entries.length-1)rest(20,'Восстанови дыхание и подготовь следующее движение.');
+      });
+      if(round<rounds)rest(60,'Круг окончен. Начни следующий, когда готов.');
+    }
+    if(day.code==='D') {
+      rest(45,'Переход к короткому блоку корпуса. Всё без гири.');
+      const sets=easy||deload||week<=2?1:2;
+      for(let set=1;set<=sets;set++) {
+        work('sideplank',set,sets,{seconds:easy||deload?10:week<=2?15:20,sided:true},'Лёгкое удержание, без дрожи. Заверши с запасом времени.');
+        if(set<sets)rest(45,'Расслабь корпус перед следующим удержанием.');
+      }
+    }
+  } else {
+    const rounds=easy||deload?1:2;
+    const advanced=week>=3&&!easy&&!deload;
+    const entries=day.code==='E'
+      ? [['catcow',{reps:advanced?10:8}],['thoracicopen',{reps:advanced?8:6,sided:true}],['hipflexor',{seconds:advanced?30:25,sided:true}],['birddog',{reps:advanced?6:4,sided:true}],['bridge',{reps:advanced?12:10}]]
+      : [['hiphingebw',{reps:advanced?12:10}],['anklemobility',{reps:advanced?10:8,sided:true}],['birddog',{reps:advanced?6:4,sided:true}],['thoracicopen',{reps:advanced?8:6,sided:true}],['catcow',{reps:advanced?10:8}]];
+    const cue='Лёгкая практика: оставь не меньше 5 повторов в запасе, не накапливай усталость.';
+    for(let round=1;round<=rounds;round++) {
+      entries.forEach(([id,target],i)=>{
+        work(id,round,rounds,target,cue);
+        if(i<entries.length-1)rest(15,'Спокойно смени положение.');
+      });
+      if(round<rounds)rest(30,'Короткая пауза перед следующим кругом.');
+    }
+  }
+  add('cooldown','cooldown',{seconds:120,cue:day.index===48?'Челлендж завершён. Сравни фото, замеры и качество движений без максимальных попыток.':'Спокойно восстанови дыхание и оцени самочувствие.'});
   return steps;
 }
 
