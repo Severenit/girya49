@@ -1,5 +1,5 @@
 /* Increment VERSION when releasing changed application files. */
-const VERSION = 'girya49-v6';
+const VERSION = 'girya49-v7';
 const APP_FILES = [
   './', './index.html', './app.js', './styles.css', './program.js', './demos.js',
   './body-progress.js', './body-progress.css', './body-store.js', './backup.js',

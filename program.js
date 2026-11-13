@@ -284,7 +284,7 @@ export function getPlan(index, settings = {}) {
   };
 
   if (day.type === 'cardio') {
-    add('walk', 'work', { seconds: (easy ? Math.min(day.minutes, 25) : day.minutes) * 60,
+    add('walk', 'work', { seconds: Math.min(day.minutes, easy ? 25 : Infinity, settings.shortSessions !== false ? 20 : Infinity) * 60,
       cue: 'Можно говорить фразами. Поставь на паузу, если нужен отдых.' });
     return steps;
   }

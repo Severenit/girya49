@@ -147,6 +147,12 @@ test('cardio progresses then deloads; recovery is intentionally light', () => {
 });
 
 const workVolume = plan => works(plan).reduce((total, step) => total + (step.seconds || step.reps * 4), 0);
+
+test('compact format also limits optional walking days to twenty minutes', () => {
+  for(let day=0;day<49;day++) assert.ok(getProgramEstimateMinutes(day,{dailyPractice:false})<=20);
+  assert.equal(getProgramEstimateMinutes(36,{dailyPractice:false}),20);
+  assert.equal(getProgramEstimateMinutes(36,{dailyPractice:false,shortSessions:false}),45);
+});
 const kettleExerciseIds = new Set(['squat', 'pausesquat', 'row', 'rdl', 'carry', 'deadlift', 'floorpress', 'swing']);
 
 test('daily mode is the default and gives all 49 dates an actual exercise session', () => {
