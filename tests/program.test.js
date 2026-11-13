@@ -5,14 +5,14 @@ import assert from 'node:assert/strict';
 import {
   WEEKS, EXERCISES,
   getDay as getProgramDay, getPlan as getProgramPlan,
-  getExercisePrescription, dateIndex, estimateMinutes as getProgramEstimateMinutes
+  getExercisePrescription, dateIndex, estimateMinutes as getProgramEstimateMinutes, stepDurationSeconds
 } from '../program.js';
 
 // Keep the original agreed 3/2/2 schedule covered explicitly; new daily defaults
 // are exercised below through the unwrapped getProgramDay/getProgramPlan APIs.
-const getDay = (index, settings = {}) => getProgramDay(index, { dailyPractice: false, ...settings });
-const getPlan = (index, settings = {}) => getProgramPlan(index, { dailyPractice: false, ...settings });
-const estimateMinutes = (index, settings = {}) => getProgramEstimateMinutes(index, { dailyPractice: false, ...settings });
+const getDay = (index, settings = {}) => getProgramDay(index, { dailyPractice: false, shortSessions: false, ...settings });
+const getPlan = (index, settings = {}) => getProgramPlan(index, { dailyPractice: false, shortSessions: false, ...settings });
+const estimateMinutes = (index, settings = {}) => getProgramEstimateMinutes(index, { dailyPractice: false, shortSessions: false, ...settings });
 
 const works = plan => plan.filter(step => step.kind === 'work');
 const count = (plan, id) => works(plan).filter(step => step.exerciseId === id).length;
@@ -190,10 +190,10 @@ test('daily bodyweight sessions deload in week seven and shrink in easy mode', (
   }
 });
 
-test('daily practice toggle keeps the original kettlebell sessions unchanged', () => {
+test('daily practice toggle keeps kettlebell sessions unchanged in compact and expanded modes', () => {
   for (let day = 0; day < 49; day++) {
     if (![0, 3, 5].includes(day % 7)) continue;
-    for (const settings of [{}, { easy: true }, { swings: true, floorpress: true }]) {
+    for (const settings of [{}, { easy: true }, { swings: true, floorpress: true }, { shortSessions: false }, { shortSessions: false, easy: true }, { shortSessions: false, swings: true, floorpress: true }]) {
       assert.deepEqual(getProgramPlan(day, settings), getProgramPlan(day, { ...settings, dailyPractice: false }));
     }
   }
@@ -217,5 +217,69 @@ test('additional daily sessions explicitly preserve an effort reserve', () => {
 test('every new daily exercise has its own offline technique demonstration', () => {
   for(let day=0;day<49;day++)for(const step of currentDailyPlan(day)){
     assert.ok(demoIds.includes(EXERCISES[step.exerciseId].demo), `missing demo for ${step.exerciseId}`);
+  }
+});
+
+test('compact default keeps every date within twenty estimated minutes, including timer choices', () => {
+  for (const mode of ['reps', 'timer']) for (const floorpress of [false, true]) for (const swings of [false, true]) {
+    const settings = { mode, timerSeconds: 60, floorpress, swings };
+    for (let day = 0; day < 49; day++) {
+      const plan = getProgramPlan(day, settings);
+      assert.ok(getProgramEstimateMinutes(day, settings) <= 20, `${getProgramDay(day).code} week ${getProgramDay(day).week}, ${JSON.stringify(settings)} exceeds twenty minutes`);
+      assert.equal(new Set(works(plan).map(step => step.exerciseId)).size, 5, `day ${day + 1} keeps five exercises`);
+      assert.equal(plan[0].kind, 'warmup');
+      assert.equal(plan[0].seconds, 180);
+      assert.equal(plan.at(-1).kind, 'cooldown');
+      assert.equal(plan.at(-1).seconds, 60);
+      assert.equal(count(plan, 'swing'), 0, 'the optional expanded swing block must not extend compact sessions');
+    }
+  }
+});
+
+test('compact strength keeps two rounds and both sides without a late-week volume jump', () => {
+  const unilateral = new Set(['row', 'carry', 'lunge', 'floorpress', 'deadbug']);
+  for (let week = 0; week < 7; week++) for (const slot of [0, 3, 5]) {
+    const day = week * 7 + slot;
+    const plan = getProgramPlan(day, { floorpress: true });
+    assert.deepEqual([...new Set(works(plan).map(step => step.round))], [1, 2]);
+    assert.ok(works(plan).every(step => step.set <= 2 && step.sets === 2));
+    for (const step of works(plan).filter(step => unilateral.has(step.exerciseId))) {
+      const matching = works(plan).filter(candidate => candidate.exerciseId === step.exerciseId && candidate.set === step.set);
+      assert.deepEqual(matching.map(candidate => candidate.side), ['Левая', 'Правая']);
+    }
+    const firstSide = plan.findIndex(step => step.kind === 'work' && step.side === 'Левая');
+    assert.equal(plan[firstSide + 1].kind, 'rest');
+    assert.equal(plan[firstSide + 1].seconds, 15);
+    const easy = getProgramPlan(day, { easy: true, floorpress: true });
+    assert.deepEqual([...new Set(works(easy).map(step => step.round))], [1]);
+    assert.ok(workVolume(easy) < workVolume(plan));
+  }
+});
+
+test('compact progression adds controlled work then returns to lower targets in week seven', () => {
+  for (const slot of [0, 3, 5]) {
+    const start = getProgramPlan(slot), second = getProgramPlan(7 + slot), developed = getProgramPlan(35 + slot), finish = getProgramPlan(42 + slot);
+    assert.ok(workVolume(start) <= workVolume(second));
+    assert.ok(workVolume(second) <= workVolume(developed));
+    assert.ok(workVolume(start) < workVolume(developed));
+    assert.equal(workVolume(finish), workVolume(start));
+    assert.ok(works(developed).every(step => /2–3/.test(step.cue)));
+  }
+});
+
+test('compact timer cap survives stored steps and the estimate matches actual step durations', () => {
+  const settings = { mode: 'timer', timerSeconds: 60, floorpress: true };
+  for (let day = 0; day < 49; day++) {
+    const plan = getProgramPlan(day, settings);
+    const stored = JSON.parse(JSON.stringify(plan));
+    const expectedSeconds = stored.reduce((total, step) => total + (step.seconds ?? Math.min(60, 35)), 0);
+    assert.equal(getProgramEstimateMinutes(day, settings), Math.ceil(expectedSeconds / 60));
+    assert.equal(stored.reduce((total, step) => total + stepDurationSeconds(step, settings), 0), expectedSeconds);
+    const expectedRepSeconds = stored.reduce((total, step) => total + (step.seconds ?? step.reps * 4), 0);
+    assert.equal(getProgramEstimateMinutes(day, { ...settings, mode: 'reps' }), Math.ceil(expectedRepSeconds / 60));
+    for (const step of stored.filter(step => step.reps !== null)) {
+      assert.equal(step.timerCap, 35);
+      assert.equal(stepDurationSeconds(step, { ...settings, shortSessions: false }), 35, 'a queued short session keeps its duration after changing settings');
+    }
   }
 });

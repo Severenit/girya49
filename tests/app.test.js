@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
-import { WEEKS, EXERCISES, getDay, getPlan } from '../program.js';
+import { WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds } from '../program.js';
 import { MAX_BACKUP_BYTES, createBackup, readBackup, restoreBackup } from '../backup.js';
 
 const KEY = 'girya49-v1';
@@ -41,7 +41,7 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
     static now() { return now; }
   }
   const context = {
-    WEEKS, EXERCISES, getDay, getPlan, dateIndex: () => 0,
+    WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds, dateIndex: () => 0,
     renderDemo: () => '<svg aria-label="Схема упражнения"></svg>', demoStyles: '',
     createBodyProgress: () => ({ mount() {}, unmount() {}, refresh() {} }),
     MAX_BACKUP_BYTES,
@@ -370,4 +370,35 @@ test('daily mode is enabled by default and changing it preserves an already queu
   assert.equal(app.api.state.settings.dailyPractice,false);
   assert.equal(app.api.state.active.steps[0].exerciseId,'walk');
   assert.equal(app.api.state.active.steps.length,baseSteps.length);
+});
+
+test('short work timers keep their stored cap after reload and backup import', async () => {
+  const app=await harness();
+  assert.equal(app.api.state.settings.shortSessions,true);
+  const step=getPlan(24).find(s=>s.kind==='work');
+  app.api.state.settings.timerSeconds=60;
+  app.api.install([step],'timer');
+  assert.equal(app.api.timerFor().duration,35000);
+  const saved=jsonCopy(app.api.state);
+  saved.settings.shortSessions=false;
+  const reloaded=await harness({saved});
+  assert.equal(reloaded.api.current().timerCap,35);
+  assert.equal(reloaded.api.timerFor().duration,35000);
+  const imported=await harness();
+  await imported.importText(JSON.stringify(saved));
+  assert.equal(imported.api.state.settings.shortSessions,false);
+  assert.equal(imported.api.current().timerCap,35);
+  assert.equal(imported.api.timerFor().duration,35000);
+});
+
+test('updating to short defaults preserves the entire already queued expanded workout', async () => {
+  const steps=getPlan(24,{shortSessions:false});
+  const saved={version:1,settings:{},completions:{0:{status:'complete'}},active:{day:24,steps,position:4,timer:null,skipped:[],startedAt:Date.now()}};
+  const app=await harness({saved});
+  assert.equal(app.api.state.settings.shortSessions,true);
+  assert.equal(app.api.state.completions[0].status,'complete');
+  assert.equal(app.api.state.active.position,4);
+  assert.equal(app.api.state.active.steps.length,steps.length);
+  assert.ok(app.api.state.active.steps.some(s=>s.set===3));
+  assert.ok(app.api.state.active.steps.every(s=>s.timerCap===undefined));
 });

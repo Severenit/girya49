@@ -9,7 +9,30 @@ export const WEEKS = [
   { title: 'Легче, но регулярно', dates: '25–31 декабря', sets: 2, note: '2 лёгких подхода. 31 декабря сравни результат без максимальных попыток.' },
 ];
 
+const SHORT_NOTES = [
+  '2 круга, нижняя граница повторений. Оставляй 2–3 повтора в запасе.',
+  '2 круга. Добавь 1 повтор, только если сохраняешь технику.',
+  '2 круга. Ещё 1 повтор при уверенной технике; третий круг не добавляем.',
+  '2 круга. Закрепляй достигнутые повторения без отказа.',
+  '2 круга. Плавные, подконтрольные движения без увеличения объёма.',
+  '2 круга. Сохраняй качество и запас сил.',
+  '2 лёгких круга, нижняя граница повторений. Без максимальных попыток.',
+];
+export function getWeekInfo(week, settings = {}) {
+  assertWeek(week);
+  const base = WEEKS[week - 1];
+  return settings.shortSessions === false ? base : {
+    ...base, sets: 2, note: SHORT_NOTES[week - 1],
+    title: week === 3 ? 'Повторения без лишних кругов' : base.title,
+  };
+}
+
 export const EXERCISES = {
+  shortwarmup: {
+    title: 'Разминка · 3 минуты', demo: 'warmup', equipment: 'Без гири · 3 минуты',
+    cues: ['Начни со спокойного шага, мягко подвигай плечами.', 'Сделай 6 приседаний и 6 наклонов с отведением таза без веса.', 'По 3 неглубоких обратных выпада на ногу с опорой. Продолжай шагать до конца таймера.'],
+    easier: 'Используй небольшую амплитуду и устойчивую опору. Если ещё не разогрелся, добавь времени.',
+  },
   dailywarmup: {
     title: 'Разминка без гири', demo: 'warmup', equipment: 'Без гири · 3 минуты',
     cues: ['Начни с лёгкого шага на месте.', 'Мягко подвигай плечами, сделай несколько подъёмов на носки.', 'Постепенно увеличивай амплитуду. Дыши свободно.'],
@@ -241,6 +264,7 @@ export function getExercisePrescription(exerciseId, week) {
 export function getPlan(index, settings = {}) {
   const day = getDay(index, settings);
   if (day.type === 'conditioning' || day.type === 'mobility') return getDailyPlan(day, settings);
+  if (day.type === 'strength' && settings.shortSessions !== false) return getShortStrengthPlan(day, settings);
   const steps = [];
   const easy = settings.easy === true;
   const week = easy ? 1 : day.week;
@@ -317,20 +341,49 @@ export function getPlan(index, settings = {}) {
   return steps;
 }
 
+function getShortStrengthPlan(day, settings) {
+  const steps = [], easy = settings.easy === true;
+  const low = easy || day.week === 1 || day.week === 7;
+  const middle = day.week === 2;
+  const rounds = easy ? 1 : 2;
+  const target = (a, b) => low ? a : middle ? a + Math.ceil((b - a) / 2) : b;
+  const entries = day.code === 'B'
+    ? [['deadlift',8,10],['lunge',6,8],[settings.floorpress && !easy ? 'floorpress' : 'easypushup',6,8],['bridge',12,14],['deadbug',5,6]]
+    : [[day.code === 'C' ? 'pausesquat' : 'squat',6,8],['row',8,10],...(day.code === 'C' ? [['deadlift',8,10],['pushup',6,8]] : [['pushup',6,8],['rdl',8,10]]),['carry',20,25]];
+  const add = (exerciseId, kind, data = {}) => steps.push({id:`${day.index}-${steps.length}-${exerciseId}`,exerciseId,title:EXERCISES[exerciseId].title,kind,set:null,sets:null,side:null,reps:null,seconds:null,...data});
+  const rest = (seconds, cue, round) => add('cooldown','rest',{seconds,title:'Отдых',cue,round});
+  add('shortwarmup','warmup',{seconds:180,cue:EXERCISES.shortwarmup.cues.join(' ')});
+  for (let round = 1; round <= rounds; round++) {
+    entries.forEach(([id,a,b], position) => {
+      const sides = SIDED.has(id) ? ['Левая','Правая'] : [null];
+      sides.forEach((side, i) => {
+        if (i) rest(15,'Поставь гирю. Спокойно поменяй сторону; при необходимости добавь отдых.',round);
+        add(id,'work',{set:round,sets:rounds,round,side,reps:id === 'carry' ? null : target(a,b),seconds:id === 'carry' ? target(a,b) : null,timerCap:35,
+          cue:'Оставляй 2–3 качественных повтора в запасе. Не ускоряйся ради таймера; если нужно, добавь отдых.'});
+      });
+      if (position < entries.length - 1) rest(30,'Спокойно подготовь следующее движение. Если дыхание не восстановилось — добавь отдых.',round);
+    });
+    if (round < rounds) rest(60,'Круг завершён. Восстанови дыхание перед следующим.',round);
+  }
+  add('cooldown','cooldown',{seconds:60,cue:'Спокойно пройдись и восстанови дыхание. При необходимости продолжи дольше.'});
+  return steps;
+}
+
 function getDailyPlan(day, settings) {
   const steps=[];
   const easy=settings.easy===true, week=day.week, deload=week===7;
+  const short=settings.shortSessions!==false;
   const add=(exerciseId,kind,data={})=>steps.push({id:`${day.index}-${steps.length}-${exerciseId}`,exerciseId,title:EXERCISES[exerciseId].title,kind,set:null,sets:null,side:null,reps:null,seconds:null,...data});
   const rest=(seconds,cue)=>add('cooldown','rest',{seconds,title:'Отдых',cue});
   const work=(id,round,sets,{reps=null,seconds=null,sided=false}={},cue)=>{
     (sided?['Левая','Правая']:[null]).forEach((side,i)=>{
       if(i)rest(15,'Спокойно поменяй сторону.');
-      add(id,'work',{set:round,sets,round,side,reps,seconds,cue});
+      add(id,'work',{set:round,sets,round,side,reps,seconds,cue,...(short?{timerCap:35}:{})});
     });
   };
   add('dailywarmup','warmup',{seconds:180,cue:'Мягко разогрейся без гири.'});
   if(day.type==='conditioning') {
-    const rounds=easy||deload?2:week<=2?3:4;
+    const rounds=short?2:easy||deload?2:week<=2?3:4;
     const seconds=easy||deload?30:week<=2?35:week<=4?40:45;
     const cue='Умеренный разговорный темп. Оставь запас, не работай до предела.';
     const entries=['march','stepjacks','lateralstep','shadowboxing',...(day.code==='F'?['heelraise']:[])];
@@ -364,12 +417,20 @@ function getDailyPlan(day, settings) {
       if(round<rounds)rest(30,'Короткая пауза перед следующим кругом.');
     }
   }
-  add('cooldown','cooldown',{seconds:120,cue:day.index===48?'Челлендж завершён. Сравни фото, замеры и качество движений без максимальных попыток.':'Спокойно восстанови дыхание и оцени самочувствие.'});
+  add('cooldown','cooldown',{seconds:short?60:120,cue:day.index===48?'Челлендж завершён. Сравни фото, замеры и качество движений без максимальных попыток.':'Спокойно восстанови дыхание и оцени самочувствие.'});
   return steps;
 }
 
-/** Includes every rest, side switch, warmup and cooldown; 4 seconds per controlled rep. */
+/** Stored caps travel with a queued workout; changing settings never rewrites it. */
+export function stepDurationSeconds(step, settings = {}) {
+  if (step.seconds != null) return step.seconds;
+  if (settings.mode !== 'timer') return step.reps * 4;
+  const timerSeconds = [30,40,45,60].includes(settings.timerSeconds) ? settings.timerSeconds : 40;
+  return Math.min(timerSeconds, step.timerCap || timerSeconds);
+}
+
+/** Includes rest, side changes, preparation and finish; pauses remain user-controlled. */
 export function estimateMinutes(index, settings = {}) {
-  const seconds = getPlan(index, settings).reduce((total, step) => total + (step.seconds ?? step.reps * 4), 0);
+  const seconds = getPlan(index, settings).reduce((total, step) => total + stepDurationSeconds(step,settings), 0);
   return Math.ceil(seconds / 60);
 }

@@ -16,7 +16,7 @@ function workoutFrom(value, normalizeWorkout) {
   }
   if (value.settings !== undefined) {
     if (!value.settings || typeof value.settings !== 'object' || Array.isArray(value.settings)) invalid();
-    for (const key of ['sound','vibration','floorpress','swings','easy','dailyPractice']) {
+    for (const key of ['sound','vibration','floorpress','swings','easy','dailyPractice','shortSessions']) {
       if (value.settings[key] !== undefined && typeof value.settings[key] !== 'boolean') invalid();
     }
     if (value.settings.mode !== undefined && !['reps','timer'].includes(value.settings.mode)) invalid();
