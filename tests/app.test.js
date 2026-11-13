@@ -13,10 +13,10 @@ const rest = () => ({ id: 'rest', exerciseId: 'squat', title: 'Отдых', kind
 function element(id = '') {
   const listeners = new Map();
   return {
-    id, listeners, innerHTML: '', textContent: '', hidden: false, value: '', dataset: {},
+    id, listeners, innerHTML: '', textContent: '', hidden: false, value: '', dataset: {}, open: false,
     classList: { add() {}, remove() {} },
     addEventListener: (name, fn) => listeners.set(name, fn),
-    append() {}, click() {}, showModal() {}, close() {},
+    append() {}, click() {}, showModal() { this.open=true; }, close() { this.open=false; },
     getBoundingClientRect: () => ({ left: 0, right: 100, top: 0, bottom: 100 })
   };
 }
@@ -125,6 +125,52 @@ test('work timer expiry waits for explicit completion instead of awarding a day'
   await app.click('complete');
   assert.equal(app.api.view, 'finish');
   assert.equal(app.api.state.completions[0].status, 'complete');
+});
+
+test('runner technique button pauses the same sided set without losing time while reading', async () => {
+  for(const side of ['Левая','Правая']) {
+    const app=await harness();
+    const step=getPlan(0).find(s=>s.kind==='work'&&s.exerciseId==='row'&&s.side===side);
+    app.api.install([step],'timer');
+    assert.match(app.nodes.get('#app').innerHTML,/class="icon-button technique-button" data-action="technique" data-exercise="row" aria-label="Техника: Тяга гири в наклоне"/);
+    app.api.setTimerRunning(true);
+    app.addTime(11234);
+    await app.click('technique',{exercise:'row'});
+    const remaining=app.api.timerFor().remaining;
+    assert.equal(remaining,23766);
+    assert.equal(app.api.timerFor().running,false);
+    assert.equal(app.api.state.active.position,0);
+    assert.equal(app.api.current().side,side);
+    assert.equal(app.nodes.get('#help-dialog').open,true);
+    assert.ok(app.nodes.get('#help-content').innerHTML.includes(EXERCISES.row.cues[0]));
+    assert.ok(app.nodes.get('#help-content').innerHTML.includes(step.cue));
+    assert.match(app.nodes.get('#help-content').innerHTML,/Таймер на паузе/);
+    app.addTime(60000);
+    app.api.tick();
+    assert.equal(app.api.timerFor().remaining,remaining);
+    app.nodes.get('#close-help').listeners.get('click')();
+    assert.equal(app.nodes.get('#help-dialog').open,false);
+    assert.equal(app.api.timerFor().running,false);
+    assert.equal(app.api.timerFor().remaining,remaining);
+    assert.equal(app.api.state.completions[0],undefined);
+    await app.click('timer');
+    app.addTime(1000);
+    app.api.tick();
+    assert.equal(app.api.timerFor().remaining,remaining-1000);
+  }
+});
+
+test('runner technique works for a new timed exercise and leaves unstarted work untouched', async () => {
+  const app=await harness();
+  const step=getPlan(1).find(s=>s.exerciseId==='sideplank'&&s.kind==='work');
+  app.api.install([step]);
+  assert.match(app.nodes.get('#app').innerHTML,/data-action="technique" data-exercise="sideplank"/);
+  const before=jsonCopy(app.api.state.active);
+  await app.click('technique',{exercise:'sideplank'});
+  assert.ok(app.nodes.get('#help-content').innerHTML.includes(EXERCISES.sideplank.title));
+  assert.ok(app.nodes.get('#help-content').innerHTML.includes(EXERCISES.sideplank.easier));
+  assert.doesNotMatch(app.nodes.get('#help-content').innerHTML,/Таймер на паузе/);
+  assert.deepEqual(jsonCopy(app.api.state.active),before);
 });
 
 test('pause and resume use actual elapsed time with no drift or time lost while paused', async () => {

@@ -144,6 +144,11 @@ small { font-size: 12px; line-height: 1.5; }
 .runner-card .exercise-heading { padding: 21px 26px 18px; }
 .exercise-heading .eyebrow { color: #b3bba9; margin-bottom: 9px; }
 .exercise-heading h1 { font-size: 29px; letter-spacing: -1px; line-height: 1.1; }
+.exercise-title-row { display: flex; align-items: flex-start; gap: 12px; }
+.exercise-title-row h1 { flex: 1; min-width: 0; }
+.technique-button { width: 44px; height: 44px; color: var(--primary); margin-top: -4px; }
+.technique-button svg { width: 22px; height: 22px; }
+.technique-pause-note { color: var(--primary); font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
 .equipment { margin-top: 9px; font-size: 11px; color: var(--muted); }
 .runner-demo { height: 215px; margin: 0 15px; display: flex; align-items: center; overflow: hidden; }
 .runner-demo svg { width: 100%; max-height: 100%; }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
 import vm from 'node:vm';
+import { getPlan } from '../program.js';
 
 const dist = new URL('../', import.meta.url);
 
@@ -93,6 +94,32 @@ async function workerHarness({ offline = false, scope = 'https://example.com/gir
     get networkCalls() { return networkCalls; }
   };
 }
+
+test('every scheduled work exercise has a real photo available in the offline cache', async () => {
+  const source=await readFile(new URL('app.js',dist),'utf8');
+  const declaration=source.match(/const PHOTOS = Object\.freeze\((\{[\s\S]*?\})\);/);
+  assert.ok(declaration,'the actual photo mapping must be inspectable');
+  const photos=vm.runInNewContext(`(${declaration[1]})`);
+  const ids=new Set();
+  for(const settings of [{},{shortSessions:false,swings:true,floorpress:true},{dailyPractice:false,shortSessions:false}]) {
+    for(let day=0;day<49;day++) {
+      for(const step of getPlan(day,settings)) if(step.kind==='work') ids.add(step.exerciseId);
+    }
+  }
+  const worker=await workerHarness({offline:true});
+  let installed;
+  worker.handlers.get('install')({waitUntil:promise=>{installed=promise;}});
+  await installed;
+  for(const id of ids) {
+    assert.ok(Object.hasOwn(photos,id),`${id} needs a photo in the primary exercise view`);
+    assert.match(photos[id],/^[a-z][a-z0-9-]*$/);
+    const path=`photos/${photos[id]}.jpg`;
+    const bytes=await readFile(new URL(path,dist));
+    assert.equal(bytes.subarray(0,3).toString('hex'),'ffd8ff',`${id} must use an actual JPEG asset`);
+    assert.ok(bytes.length>1000,`${id} needs a usable photo rather than an empty placeholder`);
+    assert.ok(worker.stored.has(`https://example.com/girya/${path}`),`${id} photo must also work offline`);
+  }
+});
 
 test('worker installs under a subpath and removes only obsolete app caches', async () => {
   const worker = await workerHarness();
