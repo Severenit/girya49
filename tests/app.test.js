@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { WEEKS, EXERCISES, getDay, getPlan } from '../program.js';
+import { MAX_BACKUP_BYTES, createBackup, readBackup, restoreBackup } from '../backup.js';
 
 const KEY = 'girya49-v1';
 const jsonCopy = value => JSON.parse(JSON.stringify(value));
@@ -20,11 +21,17 @@ function element(id = '') {
   };
 }
 
-async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = false } = {}) {
+async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = false, bodyRecords = [] } = {}) {
   const nodes = new Map();
   const documentListeners = new Map();
   const windowListeners = new Map();
   const store = new Map(saved ? [[KEY, JSON.stringify(saved)]] : []);
+  let privateRecords = structuredClone(bodyRecords);
+  let bodyWrites = 0;
+  const bodyStoreForTest = {
+    async list() { return structuredClone(privateRecords); },
+    async replaceAll(records) { privateRecords = structuredClone(records); bodyWrites++; }
+  };
   const getNode = selector => {
     if (!nodes.has(selector)) nodes.set(selector, element(selector.replace(/^#/, '')));
     return nodes.get(selector);
@@ -36,6 +43,11 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
   const context = {
     WEEKS, EXERCISES, getDay, getPlan, dateIndex: () => 0,
     renderDemo: () => '<svg aria-label="Схема упражнения"></svg>', demoStyles: '',
+    createBodyProgress: () => ({ mount() {}, unmount() {}, refresh() {} }),
+    MAX_BACKUP_BYTES,
+    createBackup: workout => createBackup(workout, bodyStoreForTest),
+    readBackup,
+    restoreBackup: (parsed, options) => restoreBackup(parsed, { ...options, store: bodyStoreForTest }),
     Date: ClockDate, Intl, URL, Blob, console,
     document: {
       querySelector: getNode,
@@ -72,6 +84,8 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
   vm.runInNewContext(source, context, { filename: 'app.js' });
   return {
     api: context.__test, store, nodes, documentListeners, windowListeners,
+    get bodyRecords() { return structuredClone(privateRecords); },
+    get bodyWrites() { return bodyWrites; },
     addTime(ms) { now += ms; },
     async click(action, data = {}) {
       await getNode('#app').listeners.get('click')({ target: { closest: () => ({ dataset: { action, ...data } }) } });
@@ -209,7 +223,7 @@ test('invalid or oversized backup import preserves existing progress', async () 
   app.api.install([work()]);
   await app.click('complete');
   const before = jsonCopy(app.api.state);
-  for (const [text, size] of [['not JSON', 8], ['{"version":99,"completions":{}}', 32], ['{}', 1_000_001]]) {
+  for (const [text, size] of [['not JSON', 8], ['{"version":99,"completions":{}}', 32], ['{}', MAX_BACKUP_BYTES + 1]]) {
     const input = await app.importText(text, size);
     assert.deepEqual(jsonCopy(app.api.state), before);
     assert.equal(input.value, '');
@@ -254,10 +268,92 @@ test('normalization keeps legitimate plans and rejects HTML or nonfinite step fi
   const html = '<img src=x onerror=alert(1)>';
   for (const [field, value] of [
     ['reps', html], ['side', html], ['set', html],
+    ['exerciseId', '__proto__'], ['exerciseId', 'constructor'], ['exerciseId', 'toString'],
     ['seconds', NaN], ['seconds', Infinity], ['seconds', -Infinity]
   ]) {
     const normalized = app.api.normalize(backupWith([{ ...work(), [field]: value }]));
     assert.equal(normalized.active, null, `invalid ${field} must reject the active plan`);
     assert.equal(normalized.completions[1].status, 'complete', 'valid historical marks remain available');
+  }
+});
+
+test('resetting workout marks keeps settings and the separate private body history', async () => {
+  const bodyRecords = [{ id: 'private-record-kept-by-workout-reset' }];
+  const app = await harness({ bodyRecords });
+  app.api.install([work()]);
+  await app.click('complete');
+  assert.equal(app.api.state.completions[0].status, 'complete');
+  app.nodes.get('#app').listeners.get('change')({ target: { dataset: { setting: 'sound' }, type: 'checkbox', checked: false } });
+  await app.click('reset');
+  assert.deepEqual(jsonCopy(app.api.state.completions), {});
+  assert.equal(app.api.state.settings.sound, false);
+  assert.deepEqual(app.bodyRecords, bodyRecords);
+  assert.equal(app.bodyWrites, 0);
+});
+
+test('legacy backup import replaces workouts while preserving existing private history', async () => {
+  const bodyRecords = [{ id: 'private-history-preserved-by-v1-import' }];
+  const app = await harness({ bodyRecords });
+  app.api.install([work()]);
+  await app.click('complete');
+  const backup = {
+    version: 1, settings: {}, active: null,
+    completions: { 1: { status: 'complete', at: '2026-11-14T09:00:00Z', skipped: 0 } }
+  };
+  await app.importText(JSON.stringify(backup));
+  assert.equal(app.api.state.completions[0], undefined);
+  assert.equal(app.api.state.completions[1].status, 'complete');
+  assert.deepEqual(app.bodyRecords, bodyRecords);
+  assert.equal(app.bodyWrites, 0);
+});
+
+test('full backup import intentionally replaces both workouts and private history', async () => {
+  const app = await harness({ bodyRecords: [{ id: 'old-private-history' }] });
+  const backup = {
+    version: 2, createdAt: '2026-11-14T09:00:00Z', body: [],
+    workout: {
+      version: 1, settings: {}, active: null,
+      completions: { 1: { status: 'complete', at: '2026-11-14T09:00:00Z', skipped: 0 } }
+    }
+  };
+  await app.importText(JSON.stringify(backup));
+  assert.equal(app.api.state.completions[1].status, 'complete');
+  assert.deepEqual(app.bodyRecords, []);
+  assert.equal(app.bodyWrites, 1);
+});
+
+test('failed workout save during full import preserves visible progress and rolls private history back', async () => {
+  const bodyRecords = [{ id: 'old-private-history' }];
+  const app = await harness({ bodyRecords, storageFails: true });
+  const before = jsonCopy(app.api.state);
+  const backup = {
+    version: 2, createdAt: '2026-11-14T09:00:00Z', body: [],
+    workout: {
+      version: 1, settings: {}, active: null,
+      completions: { 1: { status: 'complete', at: '2026-11-14T09:00:00Z', skipped: 0 } }
+    }
+  };
+  await app.importText(JSON.stringify(backup));
+  assert.deepEqual(jsonCopy(app.api.state), before);
+  assert.deepEqual(app.bodyRecords, bodyRecords);
+  assert.equal(app.bodyWrites, 2);
+});
+
+
+test('damaged workout backups never erase existing photos or measurements', async () => {
+  const privateHistory = [{id:'private-record-kept'}];
+  const app = await harness({bodyRecords:privateHistory});
+  app.api.install([work()]);
+  await app.click('complete');
+  const previous=jsonCopy(app.api.state);
+  for (const changed of [
+    {...previous,completions:{0:{status:'corrupt'}}},
+    {...previous,active:{day:0,position:0,steps:[{...work(),exerciseId:'__proto__'}],skipped:[],timer:null}},
+    {...previous,active:{day:0,position:0,steps:[work()],skipped:[],timer:{running:true,duration:40000,remaining:30000,deadline:null}}}
+  ]) {
+    await app.importText(JSON.stringify({version:2,workout:changed,body:[]}));
+    assert.deepEqual(jsonCopy(app.api.state),previous);
+    assert.deepEqual(app.bodyRecords,privateHistory);
+    assert.equal(app.bodyWrites,0);
   }
 });

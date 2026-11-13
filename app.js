@@ -1,5 +1,7 @@
 import { WEEKS, EXERCISES, getDay, getPlan, dateIndex } from './program.js';
 import { renderDemo, demoStyles } from './demos.js';
+import { createBodyProgress } from './body-progress.js';
+import { createBackup, readBackup, restoreBackup, MAX_BACKUP_BYTES } from './backup.js';
 
 const KEY = 'girya49-v1';
 const PHOTOS = Object.freeze({
@@ -23,6 +25,8 @@ let state = normalize(saved);
 let view = 'home';
 let selected = Math.max(0, Math.min(48, dateIndex()));
 let audioContext, wakeLock, deferredInstall, registration, toastTimeout;
+let backupBusy = false;
+const bodyProgress = createBodyProgress({ onError: error => toast(error?.message || String(error)) });
 const icons = {
   bell: '<path d="M8 8V6a4 4 0 0 1 8 0v2M7 8h10l3 9a3 3 0 0 1-3 4H7a3 3 0 0 1-3-4Z"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -44,7 +48,7 @@ function sanitizeSteps(steps) {
   const bounded = (value, low, high) => Number.isInteger(value) && value >= low && value <= high;
   const result = [];
   for (const s of steps) {
-    if (!s || !EXERCISES[s.exerciseId] || !['work','rest','warmup','cooldown'].includes(s.kind)) return null;
+    if (!s || typeof s.exerciseId !== 'string' || !Object.hasOwn(EXERCISES,s.exerciseId) || !['work','rest','warmup','cooldown'].includes(s.kind)) return null;
     if (s.reps != null && !bounded(s.reps,1,100)) return null;
     if (s.seconds != null && !bounded(s.seconds,1,3600)) return null;
     if (s.reps == null && s.seconds == null) return null;
@@ -81,7 +85,7 @@ function toast(message) { const el = document.querySelector('#toast'); el.textCo
 function completedCount() { return Object.values(state.completions).filter(v=>v.status==='complete').length; }
 function displayDate(day) { return new Intl.DateTimeFormat('ru', {day:'numeric', month:'long'}).format(new Date(`${day.date}T12:00:00`)); }
 function header() {
-  return `<header class="topbar"><button class="brand" data-action="home" aria-label="Гиря 49, на главный экран">${icon('bell')}<span><strong>ГИРЯ 49<span style="color:#79886d">.</span></strong><small>ОДНА ГИРЯ. СЕМЬ НЕДЕЛЬ.</small></span></button><nav class="nav" aria-label="Основная навигация"><button data-action="home" class="${view==='home'?'active':''}">Сегодня</button><button data-action="calendar" class="${view==='calendar'?'active':''}">49 дней</button><button data-action="settings" class="${view==='settings'?'active':''}" aria-label="Настройки">${icon('settings')}</button></nav><span class="desktop-date">13.11 — 31.12 / 2026</span></header>`;
+  return `<header class="topbar"><button class="brand" data-action="home" aria-label="Гиря 49, на главный экран">${icon('bell')}<span><strong>ГИРЯ 49<span style="color:#79886d">.</span></strong><small>ОДНА ГИРЯ. СЕМЬ НЕДЕЛЬ.</small></span></button><nav class="nav" aria-label="Основная навигация"><button data-action="home" class="${view==='home'?'active':''}">Сегодня</button><button data-action="calendar" class="${view==='calendar'?'active':''}">49 дней</button><button data-action="body" class="${view==='body'?'active':''}">До / после</button><button data-action="settings" class="${view==='settings'?'active':''}" aria-label="Настройки">${icon('settings')}</button></nav><span class="desktop-date">13.11 — 31.12 / 2026</span></header>`;
 }
 function dayChip(index) {
   const d=getDay(index), status=state.completions[index]?.status;
@@ -107,7 +111,7 @@ function calendar() {
 }
 function setting(key,title,description) { return `<label class="setting"><span><strong>${title}</strong><small>${description}</small></span><input type="checkbox" data-setting="${key}" ${state.settings[key]?'checked':''}></label>`; }
 function settings() {
-  return `<div class="shell">${header()}<main class="settings-layout"><div class="view-head"><div><h1>В твоём темпе.</h1><p>Настройки нагрузки применяются к новой тренировке.</p></div></div><section class="settings-card"><h2>Во время тренировки</h2>${setting('sound','Звуковой сигнал','В конце таймера. Нажми «Проверить сигнал», чтобы разрешить звук.')}${setting('vibration','Вибрация','Если телефон и браузер поддерживают. На iPhone обычно недоступна.')}<label class="setting"><span><strong>Время на подход</strong><small>Для режима таймера. Число повторений остаётся ориентиром: не ускоряйся ради таймера.</small></span><select data-setting="timerSeconds">${[30,40,45,60].map(n=>`<option ${state.settings.timerSeconds===n?'selected':''} value="${n}">${n} сек</option>`).join('')}</select></label><button class="button secondary" data-action="test-signal">${icon('volume')}Проверить сигнал</button></section><section class="settings-card"><h2>Нагрузка</h2>${setting('easy','Облегчённая тренировка','2 подхода, нижняя граница повторений. Без махов и тяжёлого жима. Если 16 кг тяжело — используй вариант без веса из подсказки.')}${setting('floorpress','Жим 16 кг вместо отжиманий в B','Включай, только если уверенно контролируешь гирю и умеешь безопасно лечь и встать с ней.')}${setting('swings','Техника махов уже освоена','На неделях 3–6 заменяет становую в C отдельным блоком 4 × 8. Освой движение с тренером; чистая тяга сама по себе не подтверждает технику маха.')}<p class="status-note">Любой вариант — по самочувствию. Фото-иллюстрации созданы с помощью ИИ. Для разбора движения открой схему и короткие подсказки под упражнением.</p></section><section class="settings-card"><h2>На главный экран</h2>${deferredInstall?'<button class="button primary" data-action="install">Установить приложение</button>':''}<p class="install-note">iPhone: открой в Safari → «Поделиться» → «На экран Домой». Android: меню браузера → «Установить приложение» или «Добавить на главный экран».</p><p class="install-note">Для работы без сети сначала открой приложение онлайн. ${window.isSecureContext?'Офлайн-версия сохранится автоматически.':'Установка и офлайн требуют HTTPS; по локальному HTTP работает обычная страница.'}</p>${registration?.waiting?'<div class="new-update">Новая версия готова.<button data-action="update">Обновить</button></div>':''}</section><section class="settings-card"><h2>Твой прогресс</h2><p class="help-copy">Хранится только в этом браузере. На другом устройстве открой копию прогресса. Очистка данных браузера удалит отметки.</p><div class="settings-actions"><button class="button secondary" data-action="export">Скачать копию</button><button class="button outline" data-action="import">Восстановить</button></div><button class="text-button danger" data-action="reset">Удалить весь прогресс</button></section><section class="settings-card"><h2>Коротко о безопасности</h2><div class="help-copy"><p>Оставляй 2–3 качественных повтора в запасе. Острая боль, головокружение, боль в груди или необычная одышка — повод остановиться.</p><p>Если упражнение тяжело с 16 кг, выбирай облегчение или пропускай его. Дни восстановления — часть программы. Halo и протяжки в программу не включены.</p><p>Кардио — в темпе, в котором можешь говорить фразами. Эта программа не подменяет персональную оценку нагрузки.</p></div><p class="plain-link" style="margin-top:14px">Ориентиры: <a href="https://www.cdc.gov/physical-activity-basics/adding-adults/what-counts.html" target="_blank" rel="noopener">интенсивность, CDC</a> · <a href="https://www.acefitness.org/resources/pros/expert-articles/5269/how-to-get-started-with-kettlebells/" target="_blank" rel="noopener">основы работы с гирей, ACE</a></p></section>${footer()}</main></div>`;
+  return `<div class="shell">${header()}<main class="settings-layout"><div class="view-head"><div><h1>В твоём темпе.</h1><p>Настройки нагрузки применяются к новой тренировке.</p></div></div><section class="settings-card"><h2>Во время тренировки</h2>${setting('sound','Звуковой сигнал','В конце таймера. Нажми «Проверить сигнал», чтобы разрешить звук.')}${setting('vibration','Вибрация','Если телефон и браузер поддерживают. На iPhone обычно недоступна.')}<label class="setting"><span><strong>Время на подход</strong><small>Для режима таймера. Число повторений остаётся ориентиром: не ускоряйся ради таймера.</small></span><select data-setting="timerSeconds">${[30,40,45,60].map(n=>`<option ${state.settings.timerSeconds===n?'selected':''} value="${n}">${n} сек</option>`).join('')}</select></label><button class="button secondary" data-action="test-signal">${icon('volume')}Проверить сигнал</button></section><section class="settings-card"><h2>Нагрузка</h2>${setting('easy','Облегчённая тренировка','2 подхода, нижняя граница повторений. Без махов и тяжёлого жима. Если 16 кг тяжело — используй вариант без веса из подсказки.')}${setting('floorpress','Жим 16 кг вместо отжиманий в B','Включай, только если уверенно контролируешь гирю и умеешь безопасно лечь и встать с ней.')}${setting('swings','Техника махов уже освоена','На неделях 3–6 заменяет становую в C отдельным блоком 4 × 8. Освой движение с тренером; чистая тяга сама по себе не подтверждает технику маха.')}<p class="status-note">Любой вариант — по самочувствию. Фото-иллюстрации созданы с помощью ИИ. Для разбора движения открой схему и короткие подсказки под упражнением.</p></section><section class="settings-card"><h2>На главный экран</h2>${deferredInstall?'<button class="button primary" data-action="install">Установить приложение</button>':''}<p class="install-note">iPhone: открой в Safari → «Поделиться» → «На экран Домой». Android: меню браузера → «Установить приложение» или «Добавить на главный экран».</p><p class="install-note">Для работы без сети сначала открой приложение онлайн. ${window.isSecureContext?'Офлайн-версия сохранится автоматически.':'Установка и офлайн требуют HTTPS; по локальному HTTP работает обычная страница.'}</p>${registration?.waiting?'<div class="new-update">Новая версия готова.<button data-action="update">Обновить</button></div>':''}</section><section class="settings-card"><h2>Твой прогресс</h2><p class="help-copy">Отметки, фото и замеры хранятся только в этом браузере. Полная копия включает всё: сохрани её у себя для переноса на другой телефон. Очистка данных сайта удалит записи.</p><div class="settings-actions"><button class="button secondary" data-action="export">Скачать полную копию</button><button class="button outline" data-action="import">Восстановить копию</button></div><button class="text-button danger" data-action="reset">Сбросить отметки тренировок</button></section><section class="settings-card"><h2>Коротко о безопасности</h2><div class="help-copy"><p>Оставляй 2–3 качественных повтора в запасе. Острая боль, головокружение, боль в груди или необычная одышка — повод остановиться.</p><p>Если упражнение тяжело с 16 кг, выбирай облегчение или пропускай его. Дни восстановления — часть программы. Halo и протяжки в программу не включены.</p><p>Кардио — в темпе, в котором можешь говорить фразами. Эта программа не подменяет персональную оценку нагрузки.</p></div><p class="plain-link" style="margin-top:14px">Ориентиры: <a href="https://www.cdc.gov/physical-activity-basics/adding-adults/what-counts.html" target="_blank" rel="noopener">интенсивность, CDC</a> · <a href="https://www.acefitness.org/resources/pros/expert-articles/5269/how-to-get-started-with-kettlebells/" target="_blank" rel="noopener">основы работы с гирей, ACE</a></p></section>${footer()}</main></div>`;
 }
 function current() { return state.active?.steps[state.active.position]; }
 function durationFor(step) { return step.seconds || (step.kind==='rest'?90:state.settings.timerSeconds); }
@@ -139,7 +143,13 @@ function finishScreen() {
   const skipped=a.skipped.filter(i=>a.steps[i]?.kind!=='rest').length, full=skipped===0;
   return `<div class="shell">${header()}<main class="success"><div class="success-mark">${icon(full?'check':'leaf')}</div><div class="eyebrow">День ${a.day+1} · ${displayDate(getDay(a.day))}</div><h1 style="margin-top:12px">${full?'На сегодня — готово.':'Движение засчитано.'}</h1><p>${full?'Хорошая работа. Восстановись, выпей воды и возвращайся к следующему дню.':`Пропущено шагов: ${skipped}. День отмечен как частично выполненный. Можно вернуться к пропущенным движениям, когда будешь готов.`}</p><div class="stats-row"><div><strong>${completedCount()}</strong><small>дней выполнено</small></div><div><strong>${getDay(a.day).week}/7</strong><small>неделя челленджа</small></div></div>${!full?'<button class="button primary" data-action="retry-skipped">Вернуться к пропущенным</button>':''}<button class="button ${full?'primary':'secondary'}" data-action="finish">Вернуться к плану ${icon('arrow')}</button><p class="reps-hint">${a.day===48?'31 декабря: сравни самочувствие и качественные повторения с первым днём — без максимальных попыток.':'Прогресс сохранён на этом устройстве.'}</p></main></div>`;
 }
-function render() { app.innerHTML = view==='run'?runner():view==='finish'?finishScreen():view==='calendar'?calendar():view==='settings'?settings():home();document.querySelector('#storage-warning').hidden=storageOK; }
+function bodyScreen() { return `<div class="shell">${header()}<main id="body-progress-root"></main>${footer()}</div>`; }
+function render() {
+  bodyProgress.unmount();
+  app.innerHTML = view==='run'?runner():view==='finish'?finishScreen():view==='calendar'?calendar():view==='settings'?settings():view==='body'?bodyScreen():home();
+  if(view==='body') bodyProgress.mount(document.querySelector('#body-progress-root'));
+  document.querySelector('#storage-warning').hidden=storageOK;
+}
 function navigate(next) { view=next;render();window.scrollTo(0,0); }
 function unlockAudio() { try { audioContext ||= new (window.AudioContext || window.webkitAudioContext)(); if(audioContext.state==='suspended')audioContext.resume().catch(()=>{}); } catch {} }
 function signal() {
@@ -181,7 +191,7 @@ function showTechnique(id) {const ex=EXERCISES[id];if(ex)showHelp(ex.title,`<div
 app.addEventListener('click', async event=>{
   const button=event.target.closest('[data-action]');if(!button)return;
   const action=button.dataset.action;
-  if(['home','calendar','settings'].includes(action)){ if(view==='run'){pauseTimer();persist();releaseAwake();}navigate(action);if(action==='home')selected=Math.max(0,Math.min(48,dateIndex()));if(action==='home')render();return; }
+  if(['home','calendar','body','settings'].includes(action)){ if(view==='run'){pauseTimer();persist();releaseAwake();}navigate(action);if(action==='home')selected=Math.max(0,Math.min(48,dateIndex()));if(action==='home')render();return; }
   if(action==='day'){selected=Number(button.dataset.day);navigate('home');}
   if(action==='start')start();
   if(action==='resume'){selected=state.active.day;navigate(state.active.position>=state.active.steps.length?'finish':'run');keepAwake();}
@@ -199,9 +209,26 @@ app.addEventListener('click', async event=>{
   if(action==='test-signal'){unlockAudio();setTimeout(signal,150);toast('Сигнал зависит от громкости телефона и поддержки браузера');}
   if(action==='install'&&deferredInstall){await deferredInstall.prompt();deferredInstall=null;render();}
   if(action==='update'){pauseTimer();persist();registration?.waiting?.postMessage({type:'SKIP_WAITING'});}
-  if(action==='export'){pauseTimer();persist();const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}), url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`girya49-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  if(action==='import')document.querySelector('#import-file').click();
-  if(action==='reset'&&confirm('Удалить все отметки и сохранённую тренировку на этом устройстве?')){state=normalize(null);persist();navigate('home');toast('Прогресс сброшен');}
+  if(action==='export'){
+    if(backupBusy)return;
+    backupBusy=true;button.disabled=true;pauseTimer();persist();
+    try{
+      let data;
+      try{data=await createBackup(state);}catch(error){
+        if(!confirm('Не удалось прочитать фото и замеры. Скачать копию только тренировок?'))return;
+        data=state;
+      }
+      const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+      if(blob.size>MAX_BACKUP_BYTES)throw new Error('Копия слишком большая. Сохрани часть фото отдельно и попробуй снова.');
+      const url=URL.createObjectURL(blob),link=document.createElement('a');
+      link.href=url;link.download=`girya49-${new Date().toISOString().slice(0,10)}.json`;link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      toast(data.version===2?'Скачивается полная копия с фото и замерами':'Скачивается копия только тренировок');
+    }catch(error){toast(error?.message||'Не удалось скачать копию');}
+    finally{backupBusy=false;button.disabled=false;}
+  }
+  if(action==='import'&&!backupBusy)document.querySelector('#import-file').click();
+  if(action==='reset'&&confirm('Сбросить отметки и текущую тренировку? Фото, замеры и настройки сохранятся.')){state={...normalize(null),settings:{...state.settings}};persist();navigate('home');toast('Отметки тренировок сброшены');}
 });
 app.addEventListener('error', event => {
   const img=event.target;
@@ -216,8 +243,22 @@ app.addEventListener('change',event=>{
 document.querySelector('#close-help').addEventListener('click',()=>document.querySelector('#help-dialog').close());
 document.querySelector('#help-dialog').addEventListener('click',e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.currentTarget.close();}});
 document.querySelector('#import-file').addEventListener('change',async event=>{
-  const file=event.target.files[0];if(!file)return;
-  try{if(file.size>1000000)throw Error();const data=JSON.parse(await file.text());if(data.version!==1||!data.completions||typeof data.completions!=='object')throw Error();if(!confirm('Заменить текущий прогресс данными из копии?'))return;state=normalize(data);persist();navigate('home');toast('Прогресс восстановлен');}catch{toast('Не удалось прочитать копию прогресса');}finally{event.target.value='';}
+  const file=event.target.files[0];if(!file||backupBusy)return;
+  backupBusy=true;
+  try{
+    if(file.size>MAX_BACKUP_BYTES)throw new Error('Файл копии слишком большой.');
+    const parsed=await readBackup(JSON.parse(await file.text()),normalize);
+    const question=parsed.body===null?'В этой копии только тренировки. Заменить их отметки? Текущие фото и замеры сохранятся.':'Заменить отметки тренировок, фото и замеры данными из этой копии?';
+    if(!confirm(question))return;
+    pauseTimer();persist();
+    await restoreBackup(parsed,{writeWorkout:next=>{
+      try{localStorage.setItem(KEY,JSON.stringify(next));}catch(error){storageOK=false;document.querySelector('#storage-warning').hidden=false;throw error;}
+      state=next;storageOK=true;
+    }});
+    try{await bodyProgress.refresh({resetDraft:parsed.body!==null});}catch{/* A display refresh must not undo a successful restore. */}
+    releaseAwake();navigate('home');toast(parsed.body===null?'Отметки тренировок восстановлены':'Копия восстановлена');
+  }catch(error){toast(error?.message||'Не удалось прочитать копию прогресса');}
+  finally{backupBusy=false;event.target.value='';}
 });
 window.addEventListener('beforeunload',()=>persist());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){persist();releaseAwake();}else{tick();if(view==='run')keepAwake();}});

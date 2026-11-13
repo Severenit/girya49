@@ -29,6 +29,9 @@ test('every precached file exists and cache URLs are relative to the worker scop
   assert.ok(paths.includes('./app.js'));
   assert.ok(paths.includes('./program.js'));
   assert.ok(paths.includes('./demos.js'));
+  for (const module of ['./body-progress.js', './body-progress.css', './body-store.js', './backup.js']) {
+    assert.ok(paths.includes(module), `${module} must be available offline`);
+  }
   for (const path of paths) {
     assert.ok(path.startsWith('./'));
     await access(new URL(path, dist));
@@ -137,6 +140,24 @@ test('preloaded assets work without a network request', async () => {
     respondWith: promise => { response = promise; }
   });
   assert.equal((await response).body, 'cached script');
+  assert.equal(worker.networkCalls, 0);
+});
+
+test('private body photos and blobs are never intercepted or cached by the worker', async () => {
+  const worker = await workerHarness();
+  for (const url of [
+    'blob:https://example.com/7bd81ccb-local-body-photo',
+    'https://example.com/girya/body-photos/private-front.jpg',
+    'https://example.com/girya/private-progress.json'
+  ]) {
+    let intercepted = false;
+    worker.handlers.get('fetch')({
+      request: { method: 'GET', url, mode: 'cors' },
+      respondWith: () => { intercepted = true; }
+    });
+    assert.equal(intercepted, false);
+  }
+  assert.equal(worker.stored.size, 0);
   assert.equal(worker.networkCalls, 0);
 });
 
