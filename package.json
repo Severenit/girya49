@@ -1,0 +1,11 @@
+{
+  "name": "girya49",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Мобильный 49-дневный челлендж с гирей 16 кг",
+  "scripts": {
+    "dev": "python3 serve.py",
+    "test": "node --test tests/*.test.js"
+  }
+}

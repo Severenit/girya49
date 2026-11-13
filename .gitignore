@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+.env
+.env.*
+# Exported personal workout progress must stay local.
+girya49-????-??-??.json
+*progress*.json
