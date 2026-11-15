@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds } from '../program.js';
+import { getDayPurpose } from '../day-purpose.js';
 import { MAX_BACKUP_BYTES, createBackup, readBackup, restoreBackup } from '../backup.js';
 
 const KEY = 'girya49-v1';
@@ -41,7 +42,7 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
     static now() { return now; }
   }
   const context = {
-    WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds, dateIndex: () => 0,
+    WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds, getDayPurpose, dateIndex: () => 0,
     renderDemo: () => '<svg aria-label="Схема упражнения"></svg>', demoStyles: '',
     createBodyProgress: () => ({ mount() {}, unmount() {}, refresh() {} }),
     MAX_BACKUP_BYTES,
@@ -416,6 +417,38 @@ test('daily mode is enabled by default and changing it preserves an already queu
   assert.equal(app.api.state.settings.dailyPractice,false);
   assert.equal(app.api.state.active.steps[0].exerciseId,'walk');
   assert.equal(app.api.state.active.steps.length,baseSteps.length);
+});
+
+test('day purpose follows the selected calendar date without altering queued work', async () => {
+  const app=await harness();
+  const markup=()=>app.nodes.get('#app').innerHTML;
+  assert.ok(markup().includes(getDayPurpose(0).focus));
+  assert.match(markup(),/Зачем этот день/);
+  await app.click('start');
+  const queued=jsonCopy(app.api.state.active);
+  await app.click('leave');
+  await app.click('day',{day:'1'});
+  for(const value of Object.values(getDayPurpose(1))) assert.ok(markup().includes(value));
+  assert.deepEqual(jsonCopy(app.api.state.active),queued);
+  await app.click('day',{day:'48'});
+  assert.match(markup(),/Финальный день: сравни фото/);
+  assert.ok(markup().includes('Эффект от регулярных занятий'));
+});
+
+test('the optional kneeling choice survives reload and a full backup', async () => {
+  const app=await harness();
+  assert.equal(app.api.state.settings.kneePushups,false);
+  app.nodes.get('#app').listeners.get('change')({target:{dataset:{setting:'kneePushups'},type:'checkbox',checked:true}});
+  await app.click('start');
+  assert.ok(app.api.state.active.steps.some(s=>s.exerciseId==='kneepushup'));
+  const saved=jsonCopy(app.api.state);
+  const reloaded=await harness({saved});
+  assert.equal(reloaded.api.state.settings.kneePushups,true);
+  assert.ok(reloaded.api.state.active.steps.some(s=>s.exerciseId==='kneepushup'));
+  const imported=await harness();
+  await imported.importText(JSON.stringify({version:2,workout:saved,body:[]}));
+  assert.equal(imported.api.state.settings.kneePushups,true);
+  assert.ok(imported.api.state.active.steps.some(s=>s.exerciseId==='kneepushup'));
 });
 
 test('short work timers keep their stored cap after reload and backup import', async () => {

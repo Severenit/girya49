@@ -123,6 +123,11 @@ export const EXERCISES = {
     cues: ['Проверь, что стол или другая опора не сдвигается.', 'Держи корпус ровно и локти ближе к телу.', 'Плавно приблизь грудь к опоре и оттолкнись.'],
     easier: 'Отжимайся от стены, стоя ближе к ней.',
   },
+  kneepushup: {
+    title: 'Отжимания с колен', demo: 'kneepushup', equipment: 'Без гири · колени на мягком коврике',
+    cues: ['Поставь ладони под плечами или чуть шире, колени — на мягкий коврик.', 'Держи голову, таз и колени на одной линии. Не уводи таз назад и не прогибай поясницу.', 'Сгибай локти примерно под 30–45° к корпусу, плавно опускай грудь между ладонями и оттолкнись.'],
+    easier: 'Отжимайся от стены или устойчивой высокой опоры; выбирай высоту, на которой контролируешь корпус.',
+  },
   rdl: {
     title: 'Румынская тяга', demo: 'rdl', equipment: 'Гиря 16 кг · двумя руками',
     cues: ['Стой прямо, гиря перед бёдрами, колени слегка согнуты.', 'Отводи таз назад. Гиря идёт близко к ногам.', 'Остановись до округления спины и верни таз вперёд.'],
@@ -262,6 +267,14 @@ export function getExercisePrescription(exerciseId, week) {
 }
 
 export function getPlan(index, settings = {}) {
+  const steps = buildPlan(index, settings);
+  if (settings.kneePushups !== true) return steps;
+  return steps.map(step => step.kind === 'work' && ['pushup', 'easypushup'].includes(step.exerciseId)
+    ? {...step, id:step.id.replace(/(?:easypushup|pushup)$/, 'kneepushup'), exerciseId:'kneepushup', title:EXERCISES.kneepushup.title}
+    : step);
+}
+
+function buildPlan(index, settings) {
   const day = getDay(index, settings);
   if (day.type === 'conditioning' || day.type === 'mobility') return getDailyPlan(day, settings);
   if (day.type === 'strength' && settings.shortSessions !== false) return getShortStrengthPlan(day, settings);

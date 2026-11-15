@@ -101,7 +101,7 @@ test('every scheduled work exercise has a real photo available in the offline ca
   assert.ok(declaration,'the actual photo mapping must be inspectable');
   const photos=vm.runInNewContext(`(${declaration[1]})`);
   const ids=new Set();
-  for(const settings of [{},{shortSessions:false,swings:true,floorpress:true},{dailyPractice:false,shortSessions:false}]) {
+  for(const settings of [{},{shortSessions:false,swings:true,floorpress:true},{dailyPractice:false,shortSessions:false},{kneePushups:true},{shortSessions:false,kneePushups:true}]) {
     for(let day=0;day<49;day++) {
       for(const step of getPlan(day,settings)) if(step.kind==='work') ids.add(step.exerciseId);
     }

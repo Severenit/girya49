@@ -77,6 +77,17 @@ function pushup(down = false) {
       path('M117 102L113 137L119 173', 'far-limb');
 }
 
+function kneePushup(down = false) {
+  const shins = path('M62 170H25', 'far-limb') + path('M60 173H21');
+  return shins + (down
+    ? head(142, 134, 9) + path('M134 141L128 144L95 158L60 173') +
+      path('M122 146L103 157L124 173', 'far-limb') +
+      path('M128 146L109 157L131 173M131 173H146')
+    : head(142, 91, 9) + path('M134 99L127 107L94 140L60 173') +
+      path('M121 111L119 142L124 173', 'far-limb') +
+      path('M127 110L128 141L131 173M131 173H146'));
+}
+
 function floorpress(up = false) {
   return head(30, 159, 9) + path('M42 161L96 162L126 132L148 173M148 173H163') +
     path('M91 162L121 140L140 173', 'far-limb') +
@@ -224,6 +235,7 @@ const demos = {
   pausesquat: { title: 'Гоблет-присед с паузой в нижнем положении', labels: ['СТОЙКА', 'ПАУЗА 1–2 С'], poses: [standing({ goblet: true }), squat()], note: 'Удерживайте напряжение во время паузы' },
   row: { title: 'Тяга одной рукой: гиря под плечом и у таза', labels: ['ОПУСТИТЬ', 'ЛОКОТЬ К ТАЗУ'], poses: [hinge(), hinge({ pulled: true })], note: 'Свободная рука опирается на бедро · спина ровная' },
   pushup: { title: 'Отжимание: прямая линия корпуса вверху и внизу', labels: ['ПЛАНКА', 'ОПУСТИТЬСЯ'], poses: [pushup(), pushup(true)], note: 'Можно от устойчивой высокой опоры' },
+  kneepushup: { title: 'Отжимание с колен: верхнее и нижнее положение', labels: ['ОПОРА НА КОЛЕНИ', 'ОПУСТИТЬ ГРУДЬ'], poses: [kneePushup(), kneePushup(true)], note: 'Колени на мягком коврике. Голова, таз и колени остаются на одной линии. Ладони под плечами или чуть шире; локти под 30–45° к корпусу. Не уводите таз назад.', caption: 'Голова, таз и колени на одной линии · без прогиба' },
   rdl: { title: 'Румынская тяга: стойка и наклон от таза', labels: ['СТОЙКА', 'ТАЗ НАЗАД'], poses: [standingTwoHands(), hingeTwoHands()], note: 'Гиря близко к ногам · держите двумя руками' },
   deadlift: { title: 'Становая тяга: гиря с пола и выпрямление', labels: ['ПОДГОТОВКА', 'ВЫПРЯМИТЬСЯ'], poses: [hinge({ ground: true }), standingTwoHands()], note: 'Держите гирю двумя руками · при необходимости поднимите опору' },
   carry: { title: 'Переноска: ходьба с гирей сбоку', labels: ['ШАГ', 'СЛЕДУЮЩИЙ ШАГ'], poses: [walk(false, true), walk(true, true)], note: 'Корпус вертикально · затем поменяйте руку' },

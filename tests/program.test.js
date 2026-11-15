@@ -1,5 +1,5 @@
 import test from 'node:test';
-import { demoIds } from '../demos.js';
+import { demoIds, renderDemo } from '../demos.js';
 import { getPlan as currentDailyPlan } from '../program.js';
 import assert from 'node:assert/strict';
 import {
@@ -288,4 +288,64 @@ test('compact timer cap survives stored steps and the estimate matches actual st
       assert.equal(stepDurationSeconds(step, { ...settings, shortSessions: false }), 35, 'a queued short session keeps its duration after changing settings');
     }
   }
+});
+
+test('optional kneeling push-ups change only the existing push-up movement, never the queue or duration', () => {
+  const configurations=[
+    {}, {shortSessions:false}, {dailyPractice:false}, {dailyPractice:false,shortSessions:false},
+    {easy:true,floorpress:true,swings:true}, {easy:true,shortSessions:false,floorpress:true,swings:true},
+    {floorpress:true,swings:true}, {shortSessions:false,floorpress:true,swings:true},
+  ];
+  for(const mode of ['reps','timer']) for(const configuration of configurations) for(let day=0;day<49;day++) {
+    const settings={...configuration,mode,timerSeconds:60};
+    const original=getProgramPlan(day,settings);
+    assert.deepEqual(getProgramPlan(day,{...settings,kneePushups:false}),original);
+    assert.equal(count(original,'kneepushup'),0,'the new movement is always opt-in');
+    const variant=getProgramPlan(day,{...settings,kneePushups:true});
+    assert.equal(variant.length,original.length,'no additional work or rest steps');
+    assert.equal(getProgramEstimateMinutes(day,{...settings,kneePushups:true}),getProgramEstimateMinutes(day,settings));
+    assert.equal(new Set(variant.map(step=>step.id)).size,variant.length);
+    for(let position=0;position<original.length;position++) {
+      const before=original[position], after=variant[position];
+      if(before.kind==='work'&&['pushup','easypushup'].includes(before.exerciseId)) {
+        assert.equal(after.exerciseId,'kneepushup');
+        assert.equal(after.title,EXERCISES.kneepushup.title);
+        assert.match(after.id,/-kneepushup$/);
+        const {id:beforeId,title:beforeTitle,exerciseId:beforeExercise,...beforePrescription}=before;
+        const {id:afterId,title:afterTitle,exerciseId:afterExercise,...afterPrescription}=after;
+        assert.deepEqual(afterPrescription,beforePrescription,'all reps, sets, sides, rounds, cues, intervals and timer caps are preserved');
+      } else assert.deepEqual(after,before,'all other movements, rests and preparation remain identical');
+      assert.ok(demoIds.includes(EXERCISES[after.exerciseId].demo));
+    }
+  }
+});
+
+test('kneeling option keeps an explicitly chosen floor press and follows existing easy-mode replacement', () => {
+  for(const shortSessions of [false,true]) for(let week=0;week<7;week++) {
+    const day=week*7+3;
+    const press=getProgramPlan(day,{shortSessions,kneePushups:true,floorpress:true});
+    assert.ok(count(press,'floorpress')>0);
+    assert.equal(count(press,'kneepushup'),0);
+    const easy=getProgramPlan(day,{shortSessions,kneePushups:true,floorpress:true,easy:true});
+    assert.equal(count(easy,'floorpress'),0);
+    assert.equal(count(easy,'easypushup'),0);
+    assert.equal(count(easy,'kneepushup'),shortSessions?1:2);
+  }
+});
+
+test('kneeling push-up demonstration has distinct phases and stable support instructions', () => {
+  const exercise=EXERCISES.kneepushup;
+  assert.equal(exercise.demo,'kneepushup');
+  assert.match(exercise.equipment,/колени.*коврик/i);
+  assert.match(exercise.cues.join(' '),/голову, таз и колени на одной линии/i);
+  assert.match(exercise.cues.join(' '),/30–45°/);
+  assert.match(exercise.easier,/стены.*устойчивой высокой опоры/i);
+  const svg=renderDemo(exercise.demo);
+  const positions=[...svg.matchAll(/<g class="demo-position phase-(?:one|two)"[^>]*>([\s\S]*?)<\/g>/g)];
+  assert.equal(positions.length,2);
+  const paths=positions.map(position=>[...position[1].matchAll(/<path class="person[^"]*" d="([^"]+)"/g)].map(match=>match[1]));
+  assert.ok(paths.every(phase=>phase.length>=4));
+  assert.notDeepEqual(paths[0],paths[1],'the second phase depicts lowering rather than repeating the same pose');
+  assert.match(svg,/ОПОРА НА КОЛЕНИ/);
+  assert.match(svg,/ОПУСТИТЬ ГРУДЬ/);
 });

@@ -1,7 +1,7 @@
 /* Increment VERSION when releasing changed application files. */
-const VERSION = 'girya49-v8';
+const VERSION = 'girya49-v9';
 const APP_FILES = [
-  './', './index.html', './app.js', './styles.css', './program.js', './demos.js',
+  './', './index.html', './app.js', './styles.css', './program.js', './day-purpose.js', './demos.js',
   './body-progress.js', './body-progress.css', './body-store.js', './backup.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png',
   './icons/icon-512.png', './icons/maskable-512.png',
@@ -10,7 +10,7 @@ const APP_FILES = [
   './photos/bridge.jpg', './photos/deadbug.jpg', './photos/swing.jpg', './photos/walk.jpg', './photos/mobility.jpg',
   './photos/march.jpg', './photos/stepjacks.jpg', './photos/lateralstep.jpg', './photos/shadowboxing.jpg',
   './photos/heelraise.jpg', './photos/sideplank.jpg', './photos/catcow.jpg', './photos/thoracicopen.jpg',
-  './photos/hipflexor.jpg', './photos/birddog.jpg', './photos/hiphingebw.jpg', './photos/anklemobility.jpg'
+  './photos/hipflexor.jpg', './photos/birddog.jpg', './photos/hiphingebw.jpg', './photos/anklemobility.jpg', './photos/kneepushup.jpg'
 ];
 const appURL = path => new URL(path, self.registration.scope).href;
 const assetURLs = new Set(APP_FILES.map(appURL));
