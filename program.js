@@ -20,7 +20,10 @@ const SHORT_NOTES = [
 ];
 export function getWeekInfo(week, settings = {}) {
   assertWeek(week);
-  const base = WEEKS[week - 1];
+  const original = WEEKS[week - 1];
+  const base = settings.flexiblePlan === true && week === 7
+    ? { ...original, note: '2 лёгких подхода. В конце челленджа сравни результат без максимальных попыток.' }
+    : original;
   return settings.shortSessions === false ? base : {
     ...base, sets: 2, note: SHORT_NOTES[week - 1],
     title: week === 3 ? 'Повторения без лишних кругов' : base.title,

@@ -342,3 +342,27 @@ dialog .demo-wrap svg { width: 100%; max-height: 230px; }
   .nav{width:100%;justify-content:space-between}.nav button{flex:1;white-space:nowrap;padding:10px 12px;font-size:12px}
   .nav button:last-child{flex:0 0 44px;padding:10px}
 }
+
+/* Flexible challenge: stage numbers and real completion dates. */
+.plan-summary { padding: 16px 18px; margin-bottom: 18px; border: 1px solid #3b482f; border-radius: 18px; background: #1d2318; }
+.plan-summary-top { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.plan-summary-top > span { color: var(--primary); }
+.plan-summary .progress { margin: 10px 0; height: 4px; }
+.plan-summary p { color: #c8cebf; font-size: 12px; line-height: 1.6; }
+.plan-summary p strong { color: var(--ink); font-weight: 550; }
+.plan-summary small { display: block; margin-top: 5px; font-size: 11px; }
+.plan-summary .button { width: 100%; margin-top: 13px; min-height: 52px; }
+.plan-summary .text-button { display: block; color: var(--primary); }
+.session-history { margin: 30px 0; padding: 20px; border: 1px solid var(--line); border-radius: 20px; }
+.session-history h2 { font-size: 19px; margin-bottom: 8px; }
+.session-history p { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.session-history ol { list-style: none; padding: 0; margin: 10px 0 0; }
+.session-history li { border-top: 1px solid var(--line); padding: 8px 0 12px; }
+.session-history .text-button { display: block; text-align: left; color: var(--ink); font-size: 13px; }
+.session-history li > span { display: block; color: var(--muted); font-size: 11px; }
+
+@media(max-width:360px){
+  .nav { gap:0; }
+  .nav button { min-width:0; padding:10px 7px; font-size:10px; }
+  .nav button:last-child { flex:0 0 44px; padding:10px; }
+}

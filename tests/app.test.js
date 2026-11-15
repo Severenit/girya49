@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds } from '../program.js';
 import { getDayPurpose } from '../day-purpose.js';
+import { nextSession, passedCount, completedToday, projectedFinish } from '../schedule.js';
 import { MAX_BACKUP_BYTES, createBackup, readBackup, restoreBackup } from '../backup.js';
 
 const KEY = 'girya49-v1';
@@ -22,13 +23,14 @@ function element(id = '') {
   };
 }
 
-async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = false, bodyRecords = [] } = {}) {
+async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = false, bodyRecords = [], confirmChoice = true } = {}) {
   const nodes = new Map();
   const documentListeners = new Map();
   const windowListeners = new Map();
   const store = new Map(saved ? [[KEY, JSON.stringify(saved)]] : []);
   let privateRecords = structuredClone(bodyRecords);
   let bodyWrites = 0;
+  const confirmations = [];
   const bodyStoreForTest = {
     async list() { return structuredClone(privateRecords); },
     async replaceAll(records) { privateRecords = structuredClone(records); bodyWrites++; }
@@ -42,7 +44,7 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
     static now() { return now; }
   }
   const context = {
-    WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds, getDayPurpose, dateIndex: () => 0,
+    WEEKS, EXERCISES, getDay, getPlan, getWeekInfo, estimateMinutes, stepDurationSeconds, getDayPurpose, nextSession, passedCount, completedToday, projectedFinish, dateIndex: () => 0,
     renderDemo: () => '<svg aria-label="Схема упражнения"></svg>', demoStyles: '',
     createBodyProgress: () => ({ mount() {}, unmount() {}, refresh() {} }),
     MAX_BACKUP_BYTES,
@@ -67,7 +69,7 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
       setItem: (key, value) => { if (storageFails) throw new Error('Storage unavailable'); store.set(key, value); }
     },
     location: { reload() {} },
-    confirm: () => true,
+    confirm: message => { confirmations.push(message); return confirmChoice; },
     setInterval: () => 1,
     setTimeout: () => 1,
     clearTimeout() {}
@@ -75,7 +77,7 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
   let source = await readFile(new URL('../app.js', import.meta.url), 'utf8');
   source = source.replace(/^import .*?;\s*$/gm, '');
   source += `\n;globalThis.__test = {
-    get state() { return state; }, get view() { return view; },
+    get state() { return state; }, get view() { return view; }, get selected() { return selected; },
     start, current, timerFor, setTimerRunning, pauseTimer, tick, advance, normalize,
     install(steps, mode = 'reps') {
       state.active = {day:0, steps, position:0, timer:null, skipped:[], startedAt:Date.now()};
@@ -84,7 +86,7 @@ async function harness({ saved, now = Date.UTC(2026, 10, 13, 9), storageFails = 
   };`;
   vm.runInNewContext(source, context, { filename: 'app.js' });
   return {
-    api: context.__test, store, nodes, documentListeners, windowListeners,
+    api: context.__test, store, nodes, documentListeners, windowListeners, confirmations,
     get bodyRecords() { return structuredClone(privateRecords); },
     get bodyWrites() { return bodyWrites; },
     addTime(ms) { now += ms; },
@@ -480,4 +482,130 @@ test('updating to short defaults preserves the entire already queued expanded wo
   assert.equal(app.api.state.active.steps.length,steps.length);
   assert.ok(app.api.state.active.steps.some(s=>s.set===3));
   assert.ok(app.api.state.active.steps.every(s=>s.timerCap===undefined));
+});
+
+
+test('flexible default keeps the first missed session through busy days and preserves private history', async () => {
+  const bodyRecords=[{id:'private-before',date:'2026-11-13',measurements:{waist:85},photos:{}}];
+  const saved={version:1,settings:{},active:null,completions:{0:{status:'complete',at:'2026-11-13T09:00:00Z',skipped:0}}};
+  const app=await harness({saved,now:Date.UTC(2026,10,15,9),bodyRecords});
+  assert.equal(app.api.state.settings.flexiblePlan,true);
+  assert.equal(app.api.selected,1);
+  assert.match(app.nodes.get('#app').innerHTML,/Продолжить план/);
+  assert.match(app.nodes.get('#app').innerHTML,/Пройдено 1 из 49/);
+  assert.match(app.nodes.get('#app').innerHTML,/Сегодня · 15 ноября 2026/);
+  app.addTime(3*24*60*60*1000);
+  await app.click('home');
+  assert.equal(app.api.selected,1);
+  assert.match(app.nodes.get('#app').innerHTML,/Сегодня · 18 ноября 2026/);
+  await app.click('start');
+  assert.equal(app.api.state.active.day,1);
+  assert.equal(app.api.state.active.planCode,'D');
+  assert.equal(app.api.state.active.steps[0].kind,'warmup');
+  assert.deepEqual(app.bodyRecords,bodyRecords);
+  assert.equal(app.bodyWrites,0);
+});
+
+test('finishing opens the next plan card without starting a second session that day', async () => {
+  const app=await harness({confirmChoice:false});
+  app.api.install([work()]);
+  await app.click('complete');
+  assert.equal(app.api.view,'finish');
+  await app.click('finish');
+  assert.equal(app.api.selected,1);
+  assert.equal(app.api.state.active,null);
+  assert.match(app.nodes.get('#app').innerHTML,/На сегодня готово. Следующее занятие — завтра/);
+  assert.equal(app.api.state.completions[1],undefined);
+  await app.click('start');
+  assert.equal(app.api.state.active,null);
+  assert.match(app.confirmations[0],/наверстывать не нужно/);
+});
+
+test('earlier holes wait even when a later session was recorded; partial marks remain honest', async () => {
+  const app=await harness({saved:{version:1,settings:{},active:null,completions:{
+    0:{status:'partial',at:'2026-11-13T09:00:00Z',skipped:1},
+    2:{status:'complete',at:'2026-11-14T09:00:00Z',skipped:0}
+  }},now:Date.UTC(2026,10,18,9)});
+  assert.equal(app.api.selected,1);
+  assert.match(app.nodes.get('#app').innerHTML,/Пройдено 2 из 49/);
+  assert.match(app.nodes.get('#app').innerHTML,/Полностью: 1 · частично: 1/);
+  await app.click('calendar');
+  const html=app.nodes.get('#app').innerHTML;
+  assert.match(html,/История занятий/);
+  assert.match(html,/13 ноября 2026 г. · частично/);
+  assert.match(html,/14 ноября 2026 г. · выполнено/);
+  assert.doesNotMatch(html,/13 ноября — 31 декабря 2026/);
+  assert.equal(app.api.state.completions[0].status,'partial');
+});
+
+test('flexible home resumes the saved queue before filling old holes', async () => {
+  const steps=getPlan(5);
+  const active={day:5,title:'Моя сохранённая тренировка',planCode:'C',steps,position:4,timer:null,skipped:[],startedAt:Date.UTC(2026,10,13,9)};
+  const app=await harness({saved:{version:1,settings:{},completions:{0:{status:'complete'}},active}});
+  assert.equal(app.api.selected,5);
+  await app.click('start');
+  assert.equal(app.api.state.active.position,4);
+  assert.equal(app.api.state.active.steps.length,steps.length);
+  assert.equal(app.api.state.active.title,active.title);
+  assert.equal(app.api.current().id,steps[4].id);
+});
+
+test('changing schedule mode and restoring backups reselects home without modifying marks or body history', async () => {
+  const app=await harness({saved:{version:1,settings:{},active:null,completions:{0:{status:'complete',at:'2026-11-13T09:00:00Z'}}}});
+  const snapshot=jsonCopy(app.api.state.completions);
+  const toggle=checked=>app.nodes.get('#app').listeners.get('change')({target:{dataset:{setting:'flexiblePlan'},type:'checkbox',checked}});
+  await app.click('settings');toggle(false);await app.click('home');
+  assert.equal(app.api.selected,0);
+  assert.match(app.nodes.get('#app').innerHTML,/13.11 — 31.12/);
+  await app.click('settings');toggle(true);await app.click('home');
+  assert.equal(app.api.selected,1);
+  assert.deepEqual(jsonCopy(app.api.state.completions),snapshot);
+  const replacement={version:1,settings:{flexiblePlan:true},active:null,completions:{0:{status:'complete'},1:{status:'partial'},2:{status:'complete'}}};
+  await app.importText(JSON.stringify(replacement));
+  assert.equal(app.api.selected,3);
+  assert.match(app.nodes.get('#app').innerHTML,/Пройдено 3 из 49/);
+  await app.click('reset');
+  assert.equal(app.api.selected,0);
+  assert.equal(app.api.state.settings.flexiblePlan,true);
+  assert.equal(app.bodyWrites,0);
+});
+
+test('final state distinguishes all 49 attended sessions from full completions and has no next start', async () => {
+  const completions=Object.fromEntries(Array.from({length:49},(_,i)=>[i,{status:i===48?'partial':'complete',at:'2027-01-02T09:00:00Z',skipped:i===48?1:0}]));
+  const app=await harness({saved:{version:1,settings:{},active:null,completions},now:Date.UTC(2027,0,3,9)});
+  const html=app.nodes.get('#app').innerHTML;
+  assert.match(html,/План пройден/);
+  assert.match(html,/Полностью: 48 · частично: 1/);
+  assert.match(html,/Сравнить до \/ после/);
+  assert.doesNotMatch(html,/Продолжить план<|Следующее занятие — завтра/);
+  assert.equal(app.api.selected,48);
+  assert.equal(app.api.state.active,null);
+});
+
+
+test('completed flexible challenges still allow a historical session to be repeated', async () => {
+  const completions=Object.fromEntries(Array.from({length:49},(_,i)=>[i,{status:'complete',at:'2026-12-31T09:00:00Z'}]));
+  const app=await harness({saved:{version:1,settings:{},active:null,completions},now:Date.UTC(2027,0,2,9)});
+  await app.click('day',{day:'0'});
+  assert.match(app.nodes.get('#app').innerHTML,/data-action="start">Повторить это занятие/);
+  await app.click('start');
+  assert.equal(app.api.state.active.day,0);
+  assert.equal(app.api.view,'run');
+  assert.equal(Object.keys(app.api.state.completions).length,49);
+});
+
+test('a saved finished partial result remains reachable for retry after reloading home', async () => {
+  const initial=await harness();
+  initial.api.install([work('one'),work('two')]);
+  await initial.click('skip');await initial.click('complete');
+  const app=await harness({saved:jsonCopy(initial.api.state)});
+  assert.equal(app.api.selected,1);
+  assert.match(app.nodes.get('#app').innerHTML,/Результат последнего занятия/);
+  await app.click('resume');
+  assert.equal(app.api.view,'finish');
+  await app.click('retry-skipped');
+  assert.equal(app.api.current().id,'one');
+  assert.equal(app.api.state.active.day,0);
+  await app.click('complete');
+  assert.equal(app.api.state.completions[0].status,'complete');
 });

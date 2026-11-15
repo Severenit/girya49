@@ -170,3 +170,25 @@ test('rollback failure is reported as a partial restore rather than a successful
   assert.equal(store.replacements, 2);
   assert.deepEqual(store.records, [{ id: 'new' }]);
 });
+
+test('flexible schedule preference round-trips in full and legacy backups without losing explicit false', async () => {
+  for (const flexiblePlan of [true, false]) {
+    const original = workout();
+    original.settings.flexiblePlan = flexiblePlan;
+    const full = await createBackup(original, memoryStore());
+    for (const data of [original, full]) {
+      const parsed = await readBackup(data, raw => raw);
+      assert.equal(parsed.workout.settings.flexiblePlan, flexiblePlan);
+    }
+  }
+  const legacy = await readBackup(workout(), raw => raw);
+  assert.equal(Object.hasOwn(legacy.workout.settings, 'flexiblePlan'), false);
+});
+
+test('corrupt flexible schedule preference is rejected before restoration', async () => {
+  for (const flexiblePlan of ['true', 1, null, {}]) {
+    const original = workout();
+    original.settings.flexiblePlan = flexiblePlan;
+    await assert.rejects(readBackup(original, raw => raw), /повреждена/);
+  }
+});

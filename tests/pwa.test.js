@@ -30,7 +30,7 @@ test('every precached file exists and cache URLs are relative to the worker scop
   assert.ok(paths.includes('./app.js'));
   assert.ok(paths.includes('./program.js'));
   assert.ok(paths.includes('./demos.js'));
-  for (const module of ['./body-progress.js', './body-progress.css', './body-store.js', './backup.js']) {
+  for (const module of ['./body-progress.js', './body-progress.css', './body-store.js', './backup.js', './schedule.js']) {
     assert.ok(paths.includes(module), `${module} must be available offline`);
   }
   for (const path of paths) {
